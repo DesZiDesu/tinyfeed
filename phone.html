@@ -1,0 +1,190 @@
+<div id="tinyfeed-notif" class="tinyfeed-notif">
+    <div class="tinyfeed-notif-avatar"></div>
+    <div class="tinyfeed-notif-body">
+        <div class="tinyfeed-notif-title">
+            <span class="tinyfeed-notif-appicon"></span>
+            <span class="tinyfeed-notif-app">TinyFeed</span>
+            <span class="tinyfeed-notif-author"></span>
+        </div>
+        <div class="tinyfeed-notif-text"></div>
+    </div>
+</div>
+
+<div id="tinyfeed-overlay">
+    <div id="tinyfeed-phone">
+        <div class="tinyfeed-notch"></div>
+
+        <div class="tinyfeed-topbar">
+            <span id="tinyfeed-back" class="fa-solid fa-arrow-left tinyfeed-hidden"></span>
+            <span class="tinyfeed-title">TinyFeed</span>
+            <span class="tinyfeed-topbar-right">
+                <span id="tinyfeed-settings-btn" class="fa-solid fa-gear"></span>
+                <span id="tinyfeed-theme" class="fa-solid fa-moon"></span>
+                <span id="tinyfeed-close" class="fa-solid fa-xmark"></span>
+            </span>
+        </div>
+
+        <div class="tinyfeed-tabs">
+            <div class="tinyfeed-tab tinyfeed-tab-active" data-tab="feed">
+                <span class="fa-solid fa-house"></span> ฟีด
+            </div>
+            <div class="tinyfeed-tab" data-tab="news">
+                <span class="fa-solid fa-newspaper"></span> ข่าวสาร
+            </div>
+        </div>
+
+        <div class="tinyfeed-screen">
+            <div id="tinyfeed-panel-feed" class="tinyfeed-panel">
+                <div id="tinyfeed-compose" class="tinyfeed-compose">
+                    <div class="tinyfeed-compose-row">
+                        <div class="tinyfeed-compose-avatar"></div>
+                        <textarea id="tinyfeed-compose-input" rows="1" placeholder="คุณกำลังคิดอะไรอยู่?"></textarea>
+                    </div>
+                    <div class="tinyfeed-compose-actions tinyfeed-hidden">
+                        <button id="tinyfeed-compose-cancel" class="tinyfeed-btn-ghost">ยกเลิก</button>
+                        <button id="tinyfeed-compose-post" class="tinyfeed-btn-primary" disabled>โพสต์</button>
+                    </div>
+                    <div class="tinyfeed-compose-tools">
+                        <button id="tinyfeed-generate" class="tinyfeed-btn-generate">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+                            <span class="tinyfeed-generate-label">ให้ตัวละครโพสต์</span>
+                        </button>
+                    </div>
+                </div>
+                <div id="tinyfeed-feed-list"></div>
+            </div>
+            <div id="tinyfeed-panel-news" class="tinyfeed-panel tinyfeed-hidden">
+                <div class="tinyfeed-news-tools">
+                    <button id="tinyfeed-generate-news" class="tinyfeed-btn-generate">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span class="tinyfeed-generate-news-label">สร้างข่าวใหม่</span>
+                    </button>
+                </div>
+                <div id="tinyfeed-news-list"></div>
+            </div>
+            <div id="tinyfeed-detail" class="tinyfeed-panel tinyfeed-hidden"></div>
+
+            <div id="tinyfeed-settings-screen" class="tinyfeed-panel tinyfeed-hidden">
+                <div class="tinyfeed-settings-group">
+                    <div class="tinyfeed-settings-title">การแจ้งเตือน</div>
+                    <label class="tinyfeed-field-row">
+                        <span>เปิดการแจ้งเตือน (แบนเนอร์ + จุดแดง + สั่น)</span>
+                        <input id="tinyfeed-cfg-notif" type="checkbox" />
+                    </label>
+                    <small class="tinyfeed-field-hint">เด้งแจ้งเตือนสไตล์โทรศัพท์เมื่อมีโพสต์/ข่าวใหม่อัตโนมัติ · ปิดเพื่อความสงบ</small>
+                </div>
+
+                <div class="tinyfeed-settings-group">
+                    <div class="tinyfeed-settings-title">รูปโปรไฟล์</div>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">ลิงก์รูปโปรไฟล์ของคุณ</span>
+                        <input id="tinyfeed-cfg-user-avatar" type="text" placeholder="วางลิงก์รูป (URL)..." />
+                        <small class="tinyfeed-field-hint">override รูป persona ในโพสต์ของคุณ · เว้นว่าง = ใช้รูป persona</small>
+                    </label>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">ลิงก์รูปตัวละคร: <b id="tinyfeed-cfg-char-name">—</b></span>
+                        <input id="tinyfeed-cfg-char-avatar" type="text" placeholder="วางลิงก์รูป (URL)..." />
+                        <small class="tinyfeed-field-hint">override รูปการ์ดของตัวละครในแชทนี้ · เว้นว่าง = ใช้รูปการ์ด</small>
+                    </label>
+                </div>
+
+                <div class="tinyfeed-settings-group">
+                    <div class="tinyfeed-settings-title">โพสต์จากตัวละคร (AI)</div>
+                    <div class="tinyfeed-field-2col">
+                        <label class="tinyfeed-field">
+                            <span class="tinyfeed-field-label">ไลค์เริ่มต้น ต่ำสุด</span>
+                            <input id="tinyfeed-cfg-likes-min" type="number" min="0" />
+                        </label>
+                        <label class="tinyfeed-field">
+                            <span class="tinyfeed-field-label">สูงสุด</span>
+                            <input id="tinyfeed-cfg-likes-max" type="number" min="0" />
+                        </label>
+                    </div>
+                    <small class="tinyfeed-field-hint">โพสต์ที่ AI สร้างจะสุ่มไลค์ในช่วงนี้ · เลขเยอะจะย่อเป็น K/M ในฟีด แต่โชว์เต็มเมื่อกดเข้าโพสต์</small>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">จำนวนโพสต์ล่าสุดที่ให้ AI จำ</span>
+                        <input id="tinyfeed-cfg-history" type="number" min="0" />
+                    </label>
+                    <small class="tinyfeed-field-hint">แนบโพสต์ล่าสุดเป็นบริบท → AI ไม่โพสต์ซ้ำ + อ้างอิงได้ · 0 = ไม่แนบ (ยิ่งเยอะยิ่งเปลือง token)</small>
+                </div>
+
+                <div class="tinyfeed-settings-group">
+                    <div class="tinyfeed-settings-title">NPC ประจำ (แชทนี้)</div>
+                    <div id="tinyfeed-npc-list"></div>
+                    <button id="tinyfeed-npc-add" class="tinyfeed-btn-generate">
+                        <i class="fa-solid fa-plus"></i> <span>เพิ่ม NPC</span>
+                    </button>
+                    <small class="tinyfeed-field-hint">กำหนดตัวละครประจำโลกของแชทนี้ · AI จะเลือกโพสต์จากรายชื่อนี้ · ใส่ลิงก์รูปให้ NPC มีรูปเฉพาะตัว (เว้นว่าง = วงกลมสีอักษรแรก)</small>
+                </div>
+
+                <div class="tinyfeed-settings-group">
+                    <div class="tinyfeed-settings-title">สร้างโพสต์อัตโนมัติ</div>
+                    <label class="tinyfeed-field-row">
+                        <span>เปิดสร้างโพสต์อัตโนมัติ</span>
+                        <input id="tinyfeed-cfg-auto" type="checkbox" />
+                    </label>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">โหมด</span>
+                        <select id="tinyfeed-cfg-auto-mode">
+                            <option value="interval">ทุกๆ จำนวนข้อความ</option>
+                            <option value="ai">ให้ AI ตัดสินใจเอง</option>
+                        </select>
+                    </label>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">สร้างทุกๆ กี่ข้อความ</span>
+                        <input id="tinyfeed-cfg-interval" type="number" min="1" />
+                    </label>
+                    <small class="tinyfeed-field-hint">โหมด "ทุกๆ จำนวนข้อความ" = ครบตามจำนวนแล้วสร้างเลย · "ให้ AI ตัดสินใจเอง" = ครบแล้ว AI เช็คก่อนว่าควรโพสต์ไหม · นับจากตอนเปิดแชท</small>
+                </div>
+
+                <div class="tinyfeed-settings-group">
+                    <div class="tinyfeed-settings-title">ข่าวสาร</div>
+                    <label class="tinyfeed-field-row">
+                        <span>สร้างข่าวอัตโนมัติ</span>
+                        <input id="tinyfeed-cfg-news-auto" type="checkbox" />
+                    </label>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">โหมด</span>
+                        <select id="tinyfeed-cfg-news-mode">
+                            <option value="interval">ทุกๆ จำนวนข้อความ</option>
+                            <option value="ai">ให้ AI ตัดสินใจเอง</option>
+                        </select>
+                    </label>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">สร้างข่าวทุกๆ กี่ข้อความ</span>
+                        <input id="tinyfeed-cfg-news-interval" type="number" min="1" />
+                    </label>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">จำนวนข่าวล่าสุดที่ให้ AI จำ</span>
+                        <input id="tinyfeed-cfg-news-history" type="number" min="0" />
+                    </label>
+                    <small class="tinyfeed-field-hint">กดปุ่ม "สร้างข่าวใหม่" ในแท็บข่าวสารสร้างเองได้ · ข่าวปกติควรตั้งจำนวนข้อความสูงกว่าโพสต์ (ข่าวไม่ควรมาถี่)</small>
+                </div>
+
+                <div class="tinyfeed-settings-group">
+                    <div class="tinyfeed-settings-title">คอมเมนต์</div>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">การตอบของ AI เมื่อเราคอมเมนต์</span>
+                        <select id="tinyfeed-cfg-comment-mode">
+                            <option value="instant">ตอบทันทีทุกครั้ง</option>
+                            <option value="manual">กดปุ่มขอคำตอบเอง</option>
+                        </select>
+                    </label>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">คอมเมนต์ NPC ติดมากับโพสต์ใหม่ (ทั้งของ AI และของเรา)</span>
+                        <select id="tinyfeed-cfg-initcomment-mode">
+                            <option value="none">ไม่มี (คอมเมนต์ว่าง)</option>
+                            <option value="ai">ให้ AI เลือกจำนวนเอง</option>
+                            <option value="fixed">กำหนดจำนวนเอง</option>
+                        </select>
+                    </label>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">จำนวน (เมื่อเลือก "กำหนดจำนวนเอง")</span>
+                        <input id="tinyfeed-cfg-initcomment-count" type="number" min="1" />
+                    </label>
+                    <small class="tinyfeed-field-hint">ตอนสร้างโพสต์ใหม่ (ทั้ง AI สร้างและเราโพสต์เอง) จะมีคอมเมนต์ NPC ติดมาตามนี้ · โพสต์เราจะได้ยอดไลค์สุ่มด้วย (ใช้ generation เพิ่ม = เปลือง token ขึ้น)</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

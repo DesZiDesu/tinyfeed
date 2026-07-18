@@ -1,0 +1,1005 @@
+/* พื้นหลังมืดคลุมทั้งจอ */
+#tinyfeed-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;          /* บังคับเต็มจอด้วยหน่วย viewport ไม่พึ่ง top/bottom */
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow-y: auto;
+    padding: 20px 0;
+    box-sizing: border-box;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+
+#tinyfeed-overlay.tinyfeed-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* ตัวเครื่องโทรศัพท์ */
+#tinyfeed-phone {
+    width: 360px;
+    height: 720px;
+    max-width: 92vw;
+    max-height: calc(100vh - 40px);   /* คุมด้วย vh ไม่พึ่ง containing block */
+    background: var(--tf-bg);
+    color: var(--tf-text);
+    border-radius: 32px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(120%);
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    position: relative;
+}
+
+#tinyfeed-overlay.tinyfeed-visible #tinyfeed-phone {
+    transform: translateX(0);
+}
+
+.tinyfeed-notch {
+    width: 120px;
+    height: 22px;
+    background: var(--tf-bg);
+    border-radius: 0 0 14px 14px;
+    margin: 0 auto;
+    flex-shrink: 0;
+}
+
+.tinyfeed-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    background: var(--tf-topbar);
+    color: var(--tf-text-strong);
+    flex-shrink: 0;
+}
+
+.tinyfeed-title {
+    font-weight: 600;
+    font-size: 1.1em;
+}
+
+#tinyfeed-close {
+    cursor: pointer;
+    padding: 4px 8px;
+    opacity: 0.7;
+}
+
+#tinyfeed-close:hover {
+    opacity: 1;
+}
+
+.tinyfeed-screen {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    color: var(--tf-text);
+}
+
+.tinyfeed-hint {
+    display: block;
+    opacity: 0.6;
+    margin-top: 4px;
+}
+
+/* จอมือถือ: เต็มจอด้วย dvh */
+@media (max-width: 500px) {
+    #tinyfeed-overlay {
+        padding: 0;
+    }
+    #tinyfeed-phone {
+        width: 100vw;
+        height: 100vh;         /* เต็มจอด้วย viewport unit ตรงๆ */
+        max-width: 100vw;
+        max-height: 100vh;
+        margin: 0;
+        border-radius: 0;
+    }
+    .tinyfeed-notch {
+        display: none;
+    }
+}
+
+/* แท็บ */
+.tinyfeed-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--tf-border);
+    flex-shrink: 0;
+}
+
+.tinyfeed-tab {
+    flex: 1;
+    text-align: center;
+    padding: 12px 0;
+    color: var(--tf-text-muted);
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: color 0.2s ease, border-color 0.2s ease;
+    border-bottom: 2px solid transparent;
+}
+
+.tinyfeed-tab:hover {
+    color: var(--tf-text);
+}
+
+.tinyfeed-tab-active {
+    color: var(--tf-text-strong);
+    border-bottom: 2px solid var(--tf-accent);
+}
+
+.tinyfeed-hidden {
+    display: none;
+}
+
+/* โพสต์ */
+.tinyfeed-post {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--tf-border);
+}
+
+.tinyfeed-post-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.tinyfeed-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.tinyfeed-avatar-anon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: 600;
+    font-size: 1.1em;
+}
+
+.tinyfeed-post-meta {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+}
+
+.tinyfeed-post-author {
+    font-weight: 600;
+    color: var(--tf-text-strong);
+}
+
+.tinyfeed-post-time {
+    font-size: 0.78em;
+    color: var(--tf-text-muted);
+}
+
+.tinyfeed-post-body {
+    color: var(--tf-text);
+    line-height: 1.5;
+    margin-bottom: 10px;
+}
+
+.tinyfeed-post-actions {
+    display: flex;
+    gap: 24px;
+    color: var(--tf-text-muted);
+    font-size: 0.9em;
+}
+
+.tinyfeed-post-actions span {
+    cursor: pointer;
+    pointer-events: auto;      /* ปลดที่ล็อกไว้ตั้งแต่ Stage 2.5 */
+    transition: color 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.tinyfeed-post-actions span:hover {
+    color: var(--tf-accent);
+}
+
+/* ไลค์แล้ว = หัวใจสีชมพู */
+.tinyfeed-like.tinyfeed-liked,
+.tinyfeed-like.tinyfeed-liked:hover {
+    color: #f91880;
+}
+
+/* แชร์แล้ว = ไอคอนสี accent */
+.tinyfeed-share.tinyfeed-shared,
+.tinyfeed-share.tinyfeed-shared:hover {
+    color: var(--tf-accent);
+}
+
+/* ===== ช่องเขียนโพสต์ (compose) ===== */
+.tinyfeed-compose {
+    padding-bottom: 12px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--tf-border);
+}
+
+.tinyfeed-compose-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tinyfeed-compose-avatar .tinyfeed-avatar {
+    width: 40px;
+    height: 40px;
+}
+
+/* ช่องพิมพ์: ยุบ = แคปซูลแถวเดียว */
+#tinyfeed-compose-input {
+    flex: 1;
+    box-sizing: border-box;
+    height: 38px;
+    background: var(--tf-topbar);
+    color: var(--tf-text);
+    border: 1px solid var(--tf-border);
+    border-radius: 999px;
+    padding: 8px 14px;
+    font: inherit;
+    line-height: 1.4;
+    resize: none;
+    outline: none;
+    overflow: hidden;
+    transition: border-color 0.2s ease, border-radius 0.2s ease, background 0.2s ease;
+}
+
+#tinyfeed-compose-input::placeholder {
+    color: var(--tf-text-muted);
+}
+
+#tinyfeed-compose-input:focus {
+    border-color: var(--tf-accent);
+}
+
+/* ขยาย = ช่องเดิมโตขึ้น มุมมนแบบกล่อง avatar ชิดบน */
+.tinyfeed-compose-open .tinyfeed-compose-row {
+    align-items: flex-start;
+}
+
+.tinyfeed-compose-open #tinyfeed-compose-input {
+    border-radius: 14px;
+    background: var(--tf-bg);
+}
+
+.tinyfeed-compose-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.tinyfeed-btn-primary,
+.tinyfeed-btn-ghost {
+    border: none;
+    border-radius: 999px;
+    padding: 7px 18px;
+    font: inherit;
+    font-weight: 600;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: opacity 0.2s ease, background 0.2s ease;
+}
+
+.tinyfeed-btn-primary {
+    background: var(--tf-accent);
+    color: #fff;
+}
+
+.tinyfeed-btn-primary:hover {
+    opacity: 0.9;
+}
+
+.tinyfeed-btn-primary:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.tinyfeed-btn-ghost {
+    background: transparent;
+    color: var(--tf-text-muted);
+}
+
+.tinyfeed-btn-ghost:hover {
+    color: var(--tf-text);
+}
+
+/* ปุ่มให้ AI สร้างโพสต์ — ทรงพิลล์เล็ก ชิดขวา ขนาดพอๆ ปุ่มโพสต์ */
+.tinyfeed-compose-tools {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+}
+
+.tinyfeed-btn-generate {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 16px;
+    background: transparent;
+    color: var(--tf-accent);
+    border: 1px solid var(--tf-accent);
+    border-radius: 999px;
+    font: inherit;
+    font-size: 0.9em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+.tinyfeed-btn-generate:hover {
+    background: color-mix(in srgb, var(--tf-accent) 12%, transparent);
+}
+
+.tinyfeed-btn-generate:disabled {
+    cursor: default;
+    opacity: 0.7;
+}
+
+/* ไอคอนหมุนตอนกำลังสร้าง */
+.tinyfeed-btn-generate.tinyfeed-generating i {
+    animation: tinyfeed-spin 0.9s linear infinite;
+}
+
+@keyframes tinyfeed-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ปุ่มลบโพสต์ของผู้ใช้เอง */
+.tinyfeed-delete {
+    margin-left: auto;
+    padding: 4px 8px;
+    color: var(--tf-text-muted);
+    cursor: pointer;
+    opacity: 0.6;
+    transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+.tinyfeed-delete:hover {
+    color: #f4212e;
+    opacity: 1;
+}
+
+/* แถบปุ่มสร้างข่าว */
+.tinyfeed-news-tools {
+    display: flex;
+    justify-content: flex-end;
+    padding-bottom: 10px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid var(--tf-border);
+}
+
+.tinyfeed-news-head-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tinyfeed-news-delete {
+    color: var(--tf-text-muted);
+    cursor: pointer;
+    opacity: 0.6;
+    transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+.tinyfeed-news-delete:hover {
+    color: #f4212e;
+    opacity: 1;
+}
+
+/* ข่าว */
+.tinyfeed-news {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--tf-border);
+}
+
+.tinyfeed-news-head {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.78em;
+    color: var(--tf-text-muted);
+    margin-bottom: 6px;
+}
+
+.tinyfeed-news-source {
+    color: var(--tf-accent);
+    font-weight: 600;
+}
+
+.tinyfeed-news-title {
+    font-weight: 600;
+    color: var(--tf-text-strong);
+    line-height: 1.4;
+    margin-bottom: 6px;
+}
+
+.tinyfeed-news-summary {
+    color: var(--tf-text-soft);
+    font-size: 0.9em;
+    line-height: 1.5;
+}
+
+/* ทำให้โพสต์/ข่าวกดได้ */
+.tinyfeed-post:not(.tinyfeed-post-detail),
+.tinyfeed-news {
+    cursor: pointer;
+}
+
+#tinyfeed-back {
+    cursor: pointer;
+    padding: 4px 8px;
+    opacity: 0.7;
+}
+
+#tinyfeed-back:hover {
+    opacity: 1;
+}
+
+/* คอมเมนต์ */
+.tinyfeed-comments {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--tf-border-soft);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tinyfeed-comment {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+}
+
+.tinyfeed-comment .tinyfeed-avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 0.85em;
+}
+
+.tinyfeed-comment-body {
+    line-height: 1.4;
+}
+
+.tinyfeed-comment-author {
+    font-weight: 600;
+    color: var(--tf-text-strong);
+    margin-right: 6px;
+    font-size: 0.9em;
+}
+
+.tinyfeed-comment-text {
+    color: var(--tf-text-soft);
+    font-size: 0.9em;
+}
+
+.tinyfeed-more {
+    color: var(--tf-accent);
+    font-size: 0.85em;
+    cursor: pointer;
+}
+
+/* ช่องเขียนคอมเมนต์ในหน้ารายละเอียด */
+.tinyfeed-comment-compose {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--tf-border);
+}
+
+.tinyfeed-comment-compose .tinyfeed-avatar {
+    width: 30px;
+    height: 30px;
+    font-size: 0.85em;
+}
+
+.tinyfeed-comment-input {
+    flex: 1;
+    min-width: 0;
+    box-sizing: border-box;
+    background: var(--tf-topbar);
+    color: var(--tf-text);
+    border: 1px solid var(--tf-border);
+    border-radius: 999px;
+    padding: 8px 14px;
+    font: inherit;
+    font-size: 0.9em;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.tinyfeed-comment-input:focus {
+    border-color: var(--tf-accent);
+}
+
+.tinyfeed-comment-send {
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: var(--tf-accent);
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.tinyfeed-comment-send:hover {
+    background: color-mix(in srgb, var(--tf-accent) 14%, transparent);
+}
+
+/* indicator "กำลังพิมพ์…" */
+.tinyfeed-comment-typing {
+    opacity: 0.7;
+    font-style: italic;
+}
+
+.tinyfeed-ai-reply {
+    margin-top: 12px;
+}
+
+/* บทความข่าวเต็ม */
+.tinyfeed-article-title {
+    color: var(--tf-text-strong);
+    font-size: 1.3em;
+    line-height: 1.35;
+    margin: 8px 0 14px;
+}
+
+.tinyfeed-article-body p {
+    color: var(--tf-text-soft);
+    line-height: 1.7;
+    margin-bottom: 14px;
+}
+
+/* ===== หน้า settings ในโทรศัพท์ ===== */
+.tinyfeed-settings-group {
+    margin-bottom: 22px;
+}
+
+.tinyfeed-settings-title {
+    font-weight: 600;
+    color: var(--tf-text-strong);
+    font-size: 0.95em;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tinyfeed-badge-soon {
+    font-size: 0.7em;
+    font-weight: 600;
+    color: var(--tf-accent);
+    border: 1px solid var(--tf-accent);
+    border-radius: 999px;
+    padding: 1px 8px;
+    opacity: 0.85;
+}
+
+.tinyfeed-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.tinyfeed-field-label {
+    font-size: 0.85em;
+    color: var(--tf-text);
+}
+
+.tinyfeed-field-2col {
+    display: flex;
+    gap: 12px;
+}
+
+.tinyfeed-field-2col .tinyfeed-field {
+    flex: 1;
+}
+
+.tinyfeed-field-hint {
+    font-size: 0.75em;
+    color: var(--tf-text-muted);
+    line-height: 1.4;
+}
+
+.tinyfeed-field-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 14px;
+    font-size: 0.88em;
+    color: var(--tf-text);
+    cursor: pointer;
+}
+
+#tinyfeed-settings-screen input[type="text"],
+#tinyfeed-settings-screen input[type="number"],
+#tinyfeed-settings-screen select {
+    box-sizing: border-box;
+    width: 100%;
+    background: var(--tf-bg);
+    color: var(--tf-text);
+    border: 1px solid var(--tf-border);
+    border-radius: 10px;
+    padding: 9px 12px;
+    font: inherit;
+    font-size: 0.88em;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+#tinyfeed-settings-screen input[type="text"]:focus,
+#tinyfeed-settings-screen input[type="number"]:focus,
+#tinyfeed-settings-screen select:focus {
+    border-color: var(--tf-accent);
+}
+
+#tinyfeed-settings-screen input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.tinyfeed-field-row input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--tf-accent);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+/* แถวรายการ NPC ประจำ */
+.tinyfeed-npc-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.tinyfeed-npc-row .tinyfeed-npc-name {
+    flex: 0 0 34%;
+}
+
+.tinyfeed-npc-row .tinyfeed-npc-avatar {
+    flex: 1;
+    min-width: 0;
+}
+
+.tinyfeed-npc-del {
+    flex-shrink: 0;
+    padding: 4px 6px;
+    color: var(--tf-text-muted);
+    cursor: pointer;
+    opacity: 0.6;
+    transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+.tinyfeed-npc-del:hover {
+    color: #f4212e;
+    opacity: 1;
+}
+
+#tinyfeed-npc-add {
+    margin-top: 4px;
+}
+
+/* ===== จุดแดง badge + สั่น บนปุ่มเมนู (Stage 10) ===== */
+.tinyfeed-menu-badge {
+    margin-left: auto;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    box-sizing: border-box;
+    border-radius: 999px;
+    background: #f4212e;
+    color: #fff;
+    font-size: 0.72em;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+}
+
+@keyframes tinyfeed-shake {
+    0%, 100% { transform: translateX(0); }
+    15% { transform: translateX(-3px) rotate(-3deg); }
+    30% { transform: translateX(3px) rotate(3deg); }
+    45% { transform: translateX(-3px) rotate(-2deg); }
+    60% { transform: translateX(3px) rotate(2deg); }
+    75% { transform: translateX(-2px); }
+}
+
+#tinyfeed-menu-button.tinyfeed-shake {
+    animation: tinyfeed-shake 0.6s ease;
+}
+
+/* ===== แจ้งเตือนสไตล์โทรศัพท์ (push banner) ===== */
+.tinyfeed-notif {
+    /* ค่า default = ธีมมืด (เผื่อยังไม่ได้ใส่ class ธีม) */
+    --nf-bg: rgba(30, 32, 38, 0.92);
+    --nf-border: rgba(255, 255, 255, 0.12);
+    --nf-text: #f2f4f7;
+    --nf-sub: #9aa4b2;
+    --nf-body: #dfe3e8;
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translate(-50%, -160%);
+    width: min(380px, calc(100vw - 24px));
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--nf-bg);
+    border: 1px solid var(--nf-border);
+    border-radius: 18px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 100001;               /* เหนือ overlay โทรศัพท์ */
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.35s ease;
+}
+
+.tinyfeed-notif.tinyfeed-theme-dark {
+    --nf-bg: rgba(30, 32, 38, 0.92);
+    --nf-border: rgba(255, 255, 255, 0.12);
+    --nf-text: #f2f4f7;
+    --nf-sub: #9aa4b2;
+    --nf-body: #dfe3e8;
+}
+
+.tinyfeed-notif.tinyfeed-theme-light {
+    --nf-bg: rgba(255, 255, 255, 0.94);
+    --nf-border: rgba(0, 0, 0, 0.10);
+    --nf-text: #0f1419;
+    --nf-sub: #536471;
+    --nf-body: #3c4650;
+}
+
+.tinyfeed-notif.tinyfeed-notif-show {
+    transform: translate(-50%, 0);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.tinyfeed-notif-avatar .tinyfeed-avatar {
+    width: 38px;
+    height: 38px;
+}
+
+.tinyfeed-notif-body {
+    flex: 1;
+    min-width: 0;
+    line-height: 1.35;
+}
+
+.tinyfeed-notif-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.72em;
+    margin-bottom: 2px;
+}
+
+/* app icon แบบสี่เหลี่ยมมน (CSS ล้วน ไม่พึ่ง Font Awesome จะได้ไม่เป็นกล่อง) */
+.tinyfeed-notif-appicon {
+    width: 15px;
+    height: 15px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #1d9bf0, #0a6bd8);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+
+.tinyfeed-notif-app {
+    color: var(--nf-sub);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.tinyfeed-notif-author {
+    color: var(--nf-text);
+    font-weight: 600;
+}
+
+.tinyfeed-notif-text {
+    font-size: 0.88em;
+    color: var(--nf-body);
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+/* ===== Stage 11: ขัดเกลา / แอนิเมชัน ===== */
+
+/* โพสต์/ข่าวเลื่อนขึ้นตอนเรนเดอร์ */
+@keyframes tinyfeed-rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.tinyfeed-post,
+.tinyfeed-news {
+    animation: tinyfeed-rise 0.32s ease backwards;
+}
+
+/* แต่ละแท็บ/หน้า fade เข้า */
+@keyframes tinyfeed-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.tinyfeed-panel:not(.tinyfeed-hidden) {
+    animation: tinyfeed-fade 0.25s ease;
+}
+
+/* หัวใจเด้งตอนไลค์ */
+@keyframes tinyfeed-heartpop {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.45); }
+    100% { transform: scale(1); }
+}
+.tinyfeed-like.tinyfeed-pop i {
+    animation: tinyfeed-heartpop 0.32s ease;
+}
+
+/* hover โพสต์/ข่าว */
+.tinyfeed-post:not(.tinyfeed-post-detail),
+.tinyfeed-news {
+    transition: background 0.15s ease;
+    border-radius: 8px;
+}
+.tinyfeed-post:not(.tinyfeed-post-detail):hover,
+.tinyfeed-news:hover {
+    background: var(--tf-border-soft);
+}
+
+/* avatar มีขอบบางๆ ดูคม */
+.tinyfeed-avatar {
+    box-shadow: 0 0 0 1px var(--tf-border);
+}
+
+/* ===== empty state ===== */
+.tinyfeed-empty {
+    text-align: center;
+    padding: 52px 24px;
+    color: var(--tf-text-muted);
+    animation: tinyfeed-fade 0.3s ease;
+}
+.tinyfeed-empty i {
+    font-size: 2.4em;
+    opacity: 0.45;
+    margin-bottom: 14px;
+    display: block;
+}
+.tinyfeed-empty-title {
+    color: var(--tf-text-strong);
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+.tinyfeed-empty-sub {
+    font-size: 0.88em;
+    line-height: 1.55;
+}
+
+/* ===== skeleton loading ===== */
+.tinyfeed-skel {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--tf-border);
+}
+.tinyfeed-skel-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.tinyfeed-skel-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.tinyfeed-skel-lines {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+.tinyfeed-skel-line {
+    height: 10px;
+    border-radius: 6px;
+    margin: 3px 0;
+}
+.tinyfeed-shimmer {
+    background: linear-gradient(90deg,
+        var(--tf-border-soft) 25%, var(--tf-border) 37%, var(--tf-border-soft) 63%);
+    background-size: 400% 100%;
+    animation: tinyfeed-shimmer 1.4s ease infinite;
+}
+@keyframes tinyfeed-shimmer {
+    0% { background-position: 100% 0; }
+    100% { background-position: 0 0; }
+}
+
+/* ===== scrollbar เนียนๆ ===== */
+.tinyfeed-screen {
+    scrollbar-width: thin;
+    scrollbar-color: var(--tf-border) transparent;
+}
+.tinyfeed-screen::-webkit-scrollbar {
+    width: 8px;
+}
+.tinyfeed-screen::-webkit-scrollbar-thumb {
+    background: var(--tf-border);
+    border-radius: 8px;
+}
+.tinyfeed-screen::-webkit-scrollbar-thumb:hover {
+    background: var(--tf-text-muted);
+}
+
+/* ===== ตัวแปรธีม ===== */
+#tinyfeed-phone.tinyfeed-theme-dark {
+    --tf-bg: #16181c;
+    --tf-text: #e7e9ea;
+    --tf-text-strong: #ffffff;
+    --tf-text-muted: #8b98a5;
+    --tf-text-soft: #d0d5da;
+    --tf-border: rgba(255, 255, 255, 0.08);
+    --tf-border-soft: rgba(255, 255, 255, 0.06);
+    --tf-accent: #1d9bf0;
+    --tf-topbar: #16181c;
+}
+
+#tinyfeed-phone.tinyfeed-theme-light {
+    --tf-bg: #ffffff;
+    --tf-text: #0f1419;
+    --tf-text-strong: #0f1419;
+    --tf-text-muted: #536471;
+    --tf-text-soft: #3c4650;
+    --tf-border: rgba(0, 0, 0, 0.1);
+    --tf-border-soft: rgba(0, 0, 0, 0.06);
+    --tf-accent: #1d9bf0;
+    --tf-topbar: #ffffff;
+}
+
+.tinyfeed-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+#tinyfeed-theme,
+#tinyfeed-settings-btn {
+    cursor: pointer;
+    opacity: 0.7;
+}
+
+#tinyfeed-theme:hover,
+#tinyfeed-settings-btn:hover {
+    opacity: 1;
+}
