@@ -137,8 +137,9 @@
     border-bottom: 2px solid var(--tf-accent);
 }
 
+/* utility ซ่อน — ต้องชนะทุก rule ที่ตั้ง display ทีหลัง (เคยพลาดมาแล้วหลายจุด) */
 .tinyfeed-hidden {
-    display: none;
+    display: none !important;
 }
 
 /* โพสต์ */
@@ -575,6 +576,20 @@
 /* ===== หน้า settings ในโทรศัพท์ ===== */
 .tinyfeed-settings-group {
     margin-bottom: 22px;
+}
+
+/* หัวข้อใหญ่คั่นหมวด (ตั้งค่าเครื่อง / แต่ละแอป) */
+.tinyfeed-settings-cat {
+    font-size: 1.05em;
+    font-weight: 700;
+    color: var(--tf-text-strong);
+    margin: 4px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--tf-accent);
+}
+
+.tinyfeed-settings-cat:not(:first-child) {
+    margin-top: 14px;
 }
 
 .tinyfeed-settings-title {
@@ -1016,6 +1031,96 @@
     text-overflow: ellipsis;
 }
 
+/* แถบเครื่องมือ + ฟอร์มสร้างกลุ่ม */
+.tinyfeed-connect-tools {
+    display: flex;
+    justify-content: flex-end;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--tf-border);
+    flex-shrink: 0;
+}
+
+.tinyfeed-connect-groupform {
+    flex-shrink: 0;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--tf-border);
+    background: var(--tf-border-soft);
+}
+
+#tinyfeed-group-name {
+    box-sizing: border-box;
+    width: 100%;
+    background: var(--tf-bg);
+    color: var(--tf-text);
+    border: 1px solid var(--tf-border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    font: inherit;
+    font-size: 0.9em;
+    outline: none;
+    margin-bottom: 10px;
+}
+
+.tinyfeed-group-members {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    margin: 6px 0 10px;
+}
+
+.tinyfeed-group-member {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.88em;
+    color: var(--tf-text);
+    cursor: pointer;
+}
+
+.tinyfeed-group-member input {
+    accent-color: var(--tf-accent);
+    cursor: pointer;
+}
+
+.tinyfeed-group-count {
+    color: var(--tf-text-muted);
+    font-weight: 400;
+    font-size: 0.85em;
+}
+
+.tinyfeed-group-del {
+    flex-shrink: 0;
+    padding: 4px 6px;
+    color: var(--tf-text-muted);
+    opacity: 0.6;
+    cursor: pointer;
+    transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+.tinyfeed-group-del:hover {
+    color: #f4212e;
+    opacity: 1;
+}
+
+/* ชื่อผู้พูดในแชตกลุ่ม */
+.tinyfeed-msg-col {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    max-width: 78%;
+}
+
+.tinyfeed-msg-author {
+    font-size: 0.75em;
+    color: var(--tf-text-muted);
+    padding-left: 4px;
+}
+
+.tinyfeed-msg-col .tinyfeed-msg-bubble {
+    max-width: 100%;
+}
+
 /* ห้องแชต */
 .tinyfeed-connect-thread {
     flex: 1;
@@ -1315,6 +1420,35 @@
     background: color-mix(in srgb, #a855f7 15%, transparent);
 }
 
+/* ===== markdown + แฮชแท็ก/เมนชัน ===== */
+.tinyfeed-tag,
+.tinyfeed-mention {
+    color: var(--tf-accent);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.tinyfeed-tag:hover,
+.tinyfeed-mention:hover {
+    text-decoration: underline;
+}
+
+/* ในบับเบิลแชตของเรา (พื้นเขียว) ใช้สีขาวจะอ่านชัดกว่า */
+.tinyfeed-msg-user .tinyfeed-tag,
+.tinyfeed-msg-user .tinyfeed-mention {
+    color: #eafff2;
+    text-decoration: underline;
+}
+
+.tinyfeed-code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.9em;
+    background: var(--tf-border-soft);
+    border: 1px solid var(--tf-border);
+    border-radius: 5px;
+    padding: 1px 5px;
+}
+
 /* ===== ตัวแปรธีม ===== */
 #tinyfeed-phone.tinyfeed-theme-dark {
     --tf-bg: #16181c;
@@ -1377,6 +1511,34 @@
     padding: 30px 22px;
     overflow-y: auto;
     animation: tinyfeed-fade 0.28s ease;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+/* มีวอลเปเปอร์: ใส่ฝ้าจางทับให้ตัวหนังสืออ่านชัด */
+#tinyfeed-home.tinyfeed-has-wallpaper {
+    position: relative;
+}
+
+#tinyfeed-home.tinyfeed-has-wallpaper::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.55));
+    pointer-events: none;
+}
+
+#tinyfeed-home.tinyfeed-has-wallpaper > * {
+    position: relative;
+    z-index: 1;
+}
+
+#tinyfeed-home.tinyfeed-has-wallpaper .tinyfeed-home-hello,
+#tinyfeed-home.tinyfeed-has-wallpaper .tinyfeed-home-sub,
+#tinyfeed-home.tinyfeed-has-wallpaper .tinyfeed-app-name {
+    color: #fff;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
 }
 
 .tinyfeed-home-header {

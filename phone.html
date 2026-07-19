@@ -162,6 +162,15 @@
                 </div>
 
                 <div class="tinyfeed-settings-group">
+                    <div class="tinyfeed-settings-title">วอลเปเปอร์</div>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">ลิงก์รูปวอลเปเปอร์หน้าโฮม</span>
+                        <input id="tinyfeed-cfg-wallpaper" type="text" placeholder="วางลิงก์รูป (URL)..." />
+                        <small class="tinyfeed-field-hint">เว้นว่าง = ใช้พื้นหลังธีมปกติ · รูปจะถูกครอบให้เต็มจอโฮมพร้อมฝ้าจางให้อ่านชื่อแอปชัด</small>
+                    </label>
+                </div>
+
+                <div class="tinyfeed-settings-group">
                     <div class="tinyfeed-settings-title">รูปโปรไฟล์</div>
                     <label class="tinyfeed-field">
                         <span class="tinyfeed-field-label">ลิงก์รูปโปรไฟล์ของคุณ</span>
@@ -275,6 +284,14 @@
                             <option value="both">แทรกโพสต์ + ข่าว</option>
                         </select>
                     </label>
+                    <label class="tinyfeed-field-row">
+                        <span>แทรกแชต TinyConnect ด้วย</span>
+                        <input id="tinyfeed-cfg-inject-connect" type="checkbox" />
+                    </label>
+                    <label class="tinyfeed-field-row">
+                        <span>แทรกไลฟ์ TinyStream ด้วย</span>
+                        <input id="tinyfeed-cfg-inject-stream" type="checkbox" />
+                    </label>
                     <div class="tinyfeed-field-2col">
                         <label class="tinyfeed-field">
                             <span class="tinyfeed-field-label">จำนวนล่าสุดที่แทรก</span>
@@ -285,6 +302,15 @@
                             <input id="tinyfeed-cfg-inject-depth" type="number" min="0" />
                         </label>
                     </div>
+                    <label class="tinyfeed-field-row">
+                        <span>เชื่อมเนื้อหาข้ามแอป (แอปนึงอ้างอิงอีกแอปได้)</span>
+                        <input id="tinyfeed-cfg-crossapp" type="checkbox" />
+                    </label>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">จำนวนที่แนบข้ามแอป</span>
+                        <input id="tinyfeed-cfg-crossapp-count" type="number" min="1" />
+                    </label>
+                    <small class="tinyfeed-field-hint">เปิดแล้วตอน AI สร้างเนื้อหาในแอปหนึ่ง จะเห็นเนื้อหาแอปอื่นด้วย เช่น คุยในแชตแล้วพูดถึงโพสต์ในฟีด หรือผู้ชมไลฟ์พูดถึงข่าว (ใช้ token เพิ่ม)</small>
                     <small class="tinyfeed-field-hint">แทรกโพสต์/ข่าวล่าสุดเข้า context ของ RP หลัก → ตัวละครอ้างอิงโพสต์ได้ (เช่น "เห็นที่โพสต์แล้วนะ") · depth = แทรกลึกกี่ข้อความจากล่าสุด (ต่ำ = ใกล้ปัจจุบัน)</small>
                 </div>
 
@@ -316,6 +342,20 @@
         </div>
 
         <div id="tinyfeed-app-connect" class="tinyfeed-app tinyfeed-hidden">
+            <div id="tinyfeed-connect-tools" class="tinyfeed-connect-tools">
+                <button id="tinyfeed-connect-newgroup" class="tinyfeed-btn-generate">
+                    <i class="fa-solid fa-users"></i> <span>สร้างกลุ่ม</span>
+                </button>
+            </div>
+            <div id="tinyfeed-connect-groupform" class="tinyfeed-connect-groupform tinyfeed-hidden">
+                <input id="tinyfeed-group-name" type="text" placeholder="ชื่อกลุ่ม..." />
+                <div class="tinyfeed-field-label">เลือกสมาชิก</div>
+                <div id="tinyfeed-group-members" class="tinyfeed-group-members"></div>
+                <div class="tinyfeed-compose-actions">
+                    <button id="tinyfeed-group-cancel" class="tinyfeed-btn-ghost">ยกเลิก</button>
+                    <button id="tinyfeed-group-create" class="tinyfeed-btn-primary">สร้างกลุ่ม</button>
+                </div>
+            </div>
             <div id="tinyfeed-connect-list" class="tinyfeed-connect-list"></div>
             <div id="tinyfeed-connect-thread" class="tinyfeed-connect-thread tinyfeed-hidden">
                 <div id="tinyfeed-connect-messages" class="tinyfeed-connect-messages"></div>
