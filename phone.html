@@ -15,8 +15,9 @@
         <div class="tinyfeed-notch"></div>
 
         <div class="tinyfeed-topbar">
+            <span id="tinyfeed-home-btn" class="fa-solid fa-house-chimney tinyfeed-hidden"></span>
             <span id="tinyfeed-back" class="fa-solid fa-arrow-left tinyfeed-hidden"></span>
-            <span class="tinyfeed-title">TinyFeed</span>
+            <span class="tinyfeed-title">TinyPhone</span>
             <span class="tinyfeed-topbar-right">
                 <span id="tinyfeed-settings-btn" class="fa-solid fa-gear"></span>
                 <span id="tinyfeed-theme" class="fa-solid fa-moon"></span>
@@ -24,6 +25,28 @@
             </span>
         </div>
 
+        <div id="tinyfeed-home" class="tinyfeed-home">
+            <div class="tinyfeed-home-header">
+                <div class="tinyfeed-home-hello">TinyPhone</div>
+                <div class="tinyfeed-home-sub">เลือกแอปที่ต้องการเปิด</div>
+            </div>
+            <div class="tinyfeed-home-apps">
+                <div class="tinyfeed-app-icon" data-app="feed">
+                    <div class="tinyfeed-app-tile" style="--app-a:#1d9bf0; --app-b:#0a6bd8;"><i class="fa-solid fa-hashtag"></i></div>
+                    <span class="tinyfeed-app-name">TinyFeed</span>
+                </div>
+                <div class="tinyfeed-app-icon" data-app="connect">
+                    <div class="tinyfeed-app-tile" style="--app-a:#22c55e; --app-b:#15a34a;"><i class="fa-solid fa-comment-dots"></i></div>
+                    <span class="tinyfeed-app-name">TinyConnect</span>
+                </div>
+                <div class="tinyfeed-app-icon" data-app="stream">
+                    <div class="tinyfeed-app-tile" style="--app-a:#a855f7; --app-b:#7e22ce;"><i class="fa-solid fa-video"></i></div>
+                    <span class="tinyfeed-app-name">TinyStream</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="tinyfeed-app-feed" class="tinyfeed-app tinyfeed-hidden">
         <div class="tinyfeed-tabs">
             <div class="tinyfeed-tab tinyfeed-tab-active" data-tab="feed">
                 <span class="fa-solid fa-house"></span> ฟีด
@@ -75,6 +98,50 @@
                 </div>
 
                 <div class="tinyfeed-settings-group">
+                    <div class="tinyfeed-settings-title">TinyStream (ไลฟ์สตรีม)</div>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">ใครเป็นสตรีมเมอร์</span>
+                        <select id="tinyfeed-cfg-stream-streamer">
+                            <option value="char">ตัวละครหลัก</option>
+                            <option value="user">เราเอง</option>
+                        </select>
+                    </label>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">คอมเมนต์สดมายังไง</span>
+                        <select id="tinyfeed-cfg-stream-mode">
+                            <option value="manual">กดปุ่มโหลดเอง</option>
+                            <option value="auto">ไหลอัตโนมัติ (ตามเวลา)</option>
+                            <option value="onupdate">ไหลตอนเราคอมเมนต์</option>
+                        </select>
+                    </label>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">โหมดอัตโนมัติ: ทุกกี่วินาที</span>
+                        <input id="tinyfeed-cfg-stream-interval" type="number" min="4" />
+                    </label>
+                    <small class="tinyfeed-field-hint">โหมดอัตโนมัติจะเรียก AI เรื่อยๆ ตอนเปิดหน้าไลฟ์ (เปลือง token) · ตั้งวินาทีสูงขึ้นเพื่อประหยัด</small>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">ความยาวคอมเมนต์สูงสุด (token)</span>
+                        <input id="tinyfeed-cfg-stream-tokens" type="number" min="1" />
+                    </label>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">คำสั่งเสริมคอมเมนต์ผู้ชม (ไม่บังคับ)</span>
+                        <textarea id="tinyfeed-cfg-stream-extra" rows="2" placeholder="เช่น: ผู้ชมขี้เล่น, สแปมอิโมจิ, มีทั้งแฟนคลับและแอนตี้..."></textarea>
+                    </label>
+                </div>
+
+                <div class="tinyfeed-settings-group">
+                    <div class="tinyfeed-settings-title">TinyConnect (แชต)</div>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">ความยาวข้อความตอบสูงสุด (token)</span>
+                        <input id="tinyfeed-cfg-connect-tokens" type="number" min="1" />
+                    </label>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">คำสั่งเสริมการตอบแชต (ไม่บังคับ)</span>
+                        <textarea id="tinyfeed-cfg-connect-extra" rows="2" placeholder="เช่น: ตอบสั้นๆ, ใช้อิโมจิ, โทนสนิทสนม..."></textarea>
+                    </label>
+                </div>
+
+                <div class="tinyfeed-settings-group">
                     <div class="tinyfeed-settings-title">โมเดล / API</div>
                     <label class="tinyfeed-field">
                         <span class="tinyfeed-field-label">โมเดลที่ใช้สร้างโพสต์/ข่าว/คอมเมนต์</span>
@@ -86,6 +153,11 @@
                         <span class="tinyfeed-field-label">จำนวนข้อความล่าสุดที่แนบให้โมเดลแยก</span>
                         <input id="tinyfeed-cfg-api-context" type="number" min="0" />
                     </label>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">จำกัดความยาว World Info (ตัวอักษร, 0 = ไม่จำกัด)</span>
+                        <input id="tinyfeed-cfg-wi-limit" type="number" min="0" />
+                    </label>
+                    <small class="tinyfeed-field-hint">ข้อมูลการ์ดตัวละคร + persona ส่งเต็มเสมอ · World Info ถ้ายาวมากค่อยตั้งลิมิตกัน prompt บวม</small>
                     <small class="tinyfeed-field-hint">แยกโมเดลของ TinyFeed ออกจากโมเดลตอบ RP ได้ · ต้องสร้าง connection profile ใน Connection Manager ของ ST ก่อน · โหมด "API หลัก" ได้ context เนื้อเรื่องอัตโนมัติ ส่วนโมเดลแยกเราจะแนบบทสนทนาล่าสุดให้ตามจำนวนนี้ (มากขึ้น = เข้าใจเนื้อเรื่องดีขึ้น แต่เปลือง token)</small>
                 </div>
 
@@ -121,6 +193,14 @@
                         <input id="tinyfeed-cfg-history" type="number" min="0" />
                     </label>
                     <small class="tinyfeed-field-hint">แนบโพสต์ล่าสุดเป็นบริบท → AI ไม่โพสต์ซ้ำ + อ้างอิงได้ · 0 = ไม่แนบ (ยิ่งเยอะยิ่งเปลือง token)</small>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">ความยาวโพสต์สูงสุด (token)</span>
+                        <input id="tinyfeed-cfg-post-tokens" type="number" min="1" />
+                    </label>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">คำสั่งเสริมสำหรับเขียนโพสต์ (ไม่บังคับ)</span>
+                        <textarea id="tinyfeed-cfg-post-extra" rows="2" placeholder="เช่น: โทนกวนๆ, ใส่แฮชแท็ก, เขียนสั้นมาก..."></textarea>
+                    </label>
                 </div>
 
                 <div class="tinyfeed-settings-group">
@@ -174,6 +254,38 @@
                         <input id="tinyfeed-cfg-news-history" type="number" min="0" />
                     </label>
                     <small class="tinyfeed-field-hint">กดปุ่ม "สร้างข่าวใหม่" ในแท็บข่าวสารสร้างเองได้ · ข่าวปกติควรตั้งจำนวนข้อความสูงกว่าโพสต์ (ข่าวไม่ควรมาถี่)</small>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">ความยาวข่าวสูงสุด (token)</span>
+                        <input id="tinyfeed-cfg-news-tokens" type="number" min="1" />
+                    </label>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">คำสั่งเสริมสำหรับเขียนข่าว (ไม่บังคับ)</span>
+                        <textarea id="tinyfeed-cfg-news-extra" rows="2" placeholder="เช่น: สไตล์ข่าวการเมือง, มีชื่อสำนักข่าวเดิมๆ, เน้นดราม่า..."></textarea>
+                    </label>
+                    <small class="tinyfeed-field-hint">ข่าวถูกตัด/ยาวเกิน = เพิ่ม token · ตั้งค่าน้อยไป = ข่าวสั้น</small>
+                </div>
+
+                <div class="tinyfeed-settings-group">
+                    <div class="tinyfeed-settings-title">แทรกฟีดเข้าประวัติแชท</div>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">ให้โมเดล RP หลักรับรู้ฟีด TinyFeed</span>
+                        <select id="tinyfeed-cfg-inject-mode">
+                            <option value="off">ไม่แทรก</option>
+                            <option value="posts">แทรกเฉพาะโพสต์</option>
+                            <option value="both">แทรกโพสต์ + ข่าว</option>
+                        </select>
+                    </label>
+                    <div class="tinyfeed-field-2col">
+                        <label class="tinyfeed-field">
+                            <span class="tinyfeed-field-label">จำนวนล่าสุดที่แทรก</span>
+                            <input id="tinyfeed-cfg-inject-count" type="number" min="1" />
+                        </label>
+                        <label class="tinyfeed-field">
+                            <span class="tinyfeed-field-label">ความลึก (depth)</span>
+                            <input id="tinyfeed-cfg-inject-depth" type="number" min="0" />
+                        </label>
+                    </div>
+                    <small class="tinyfeed-field-hint">แทรกโพสต์/ข่าวล่าสุดเข้า context ของ RP หลัก → ตัวละครอ้างอิงโพสต์ได้ (เช่น "เห็นที่โพสต์แล้วนะ") · depth = แทรกลึกกี่ข้อความจากล่าสุด (ต่ำ = ใกล้ปัจจุบัน)</small>
                 </div>
 
                 <div class="tinyfeed-settings-group">
@@ -199,6 +311,41 @@
                     </label>
                     <small class="tinyfeed-field-hint">ตอนสร้างโพสต์ใหม่ (ทั้ง AI สร้างและเราโพสต์เอง) จะมีคอมเมนต์ NPC ติดมาตามนี้ · โพสต์เราจะได้ยอดไลค์สุ่มด้วย (ใช้ generation เพิ่ม = เปลือง token ขึ้น)</small>
                 </div>
+            </div>
+        </div>
+        </div>
+
+        <div id="tinyfeed-app-connect" class="tinyfeed-app tinyfeed-hidden">
+            <div id="tinyfeed-connect-list" class="tinyfeed-connect-list"></div>
+            <div id="tinyfeed-connect-thread" class="tinyfeed-connect-thread tinyfeed-hidden">
+                <div id="tinyfeed-connect-messages" class="tinyfeed-connect-messages"></div>
+                <div class="tinyfeed-connect-compose">
+                    <input id="tinyfeed-connect-input" type="text" placeholder="พิมพ์ข้อความ..." />
+                    <span id="tinyfeed-connect-send"><i class="fa-solid fa-paper-plane"></i></span>
+                </div>
+            </div>
+        </div>
+
+        <div id="tinyfeed-app-stream" class="tinyfeed-app tinyfeed-hidden">
+            <div class="tinyfeed-stream-stage">
+                <div class="tinyfeed-stream-avatar"></div>
+                <span class="tinyfeed-stream-live tinyfeed-hidden">🔴 LIVE</span>
+                <span class="tinyfeed-stream-viewers tinyfeed-hidden"></span>
+            </div>
+            <div class="tinyfeed-stream-info">
+                <div class="tinyfeed-stream-title">ยังไม่ได้เริ่มไลฟ์</div>
+                <div class="tinyfeed-stream-streamer"></div>
+            </div>
+            <div class="tinyfeed-stream-controls">
+                <button id="tinyfeed-stream-toggle" class="tinyfeed-btn-primary">เริ่มไลฟ์</button>
+                <button id="tinyfeed-stream-loadcomments" class="tinyfeed-btn-generate tinyfeed-hidden">
+                    <i class="fa-solid fa-comments"></i> <span>โหลดคอมเมนต์สด</span>
+                </button>
+            </div>
+            <div id="tinyfeed-stream-comments" class="tinyfeed-stream-comments"></div>
+            <div class="tinyfeed-stream-compose tinyfeed-hidden">
+                <input id="tinyfeed-stream-input" type="text" placeholder="พิมพ์คอมเมนต์สด..." />
+                <span id="tinyfeed-stream-send"><i class="fa-solid fa-paper-plane"></i></span>
             </div>
         </div>
     </div>

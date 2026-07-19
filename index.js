@@ -34,9 +34,29 @@ const defaultSettings = {
     newsHistoryCount: 5,
     // Stage 10: การแจ้งเตือน
     notificationsEnabled: true,
+    // TinyConnect
+    connectTokens: 200,
+    connectExtraPrompt: "",
+    // TinyStream
+    streamStreamer: "char",       // "char" | "user"
+    streamCommentMode: "manual",  // "manual" | "auto" | "onupdate"
+    streamAutoInterval: 12,        // วินาที (โหมด auto)
+    streamTokens: 300,
+    streamExtraPrompt: "",
     // Phase 2: โมเดล/API แยกสำหรับ TinyFeed ("" = ใช้ API หลัก, หรือ id ของ connection profile)
     apiProfile: "",
     apiContextMessages: 10,   // จำนวนข้อความล่าสุดที่แนบเป็น context เมื่อใช้ profile แยก
+    worldInfoLimit: 0,        // จำกัดความยาว World Info ที่แนบ (ตัวอักษร, 0 = ไม่จำกัด)
+    // Phase 2: จำนวน token ตอบกลับ (กันข้อความขาด)
+    postTokens: 400,
+    newsTokens: 500,
+    // Phase 2: คำสั่งเสริมที่ผู้ใช้ใส่เอง (ต่อท้าย prompt โดยไม่แตะโครงสร้าง)
+    postExtraPrompt: "",
+    newsExtraPrompt: "",
+    // Phase 2: แทรกฟีดเข้าประวัติแชทหลัก ("off" | "posts" | "both")
+    injectMode: "off",
+    injectDepth: 4,
+    injectCount: 5,
 };
 
 // อ่านค่า setting (fallback เป็นค่า default ถ้ายังไม่มี key นั้น — เผื่อผู้ใช้เก่าที่ settings ถูกสร้างก่อน key ใหม่)
@@ -80,11 +100,371 @@ function onEnabledChange(event) {
 function openPhone() {
     $("#tinyfeed-overlay").addClass("tinyfeed-visible");
     clearUnread();   // เปิดดูแล้ว เคลียร์จุดแดง
+    goHome();        // เปิดเครื่องมาที่หน้าโฮมเสมอ
     console.log(`[${extensionName}] Phone opened`);
+}
+
+// ===== App Shell: หน้าโฮม + สลับแอป =====
+let currentApp = "home";
+
+function goHome() {
+    currentApp = "home";
+    clearStreamTimer();
+    $(".tinyfeed-app").addClass("tinyfeed-hidden");
+    $("#tinyfeed-home").removeClass("tinyfeed-hidden");
+    $(".tinyfeed-title").text("TinyPhone");
+    $("#tinyfeed-home-btn, #tinyfeed-back").addClass("tinyfeed-hidden");
+    $("#tinyfeed-settings-btn").removeClass("tinyfeed-hidden");   // เฟืองเข้าถึงได้จากโฮม
+    try { $("#tinyfeed-home .tinyfeed-home-hello").text(`สวัสดี, ${getUserName()}`); } catch (e) { /* ข้าม */ }
+}
+
+function openApp(app) {
+    if (app !== "feed" && app !== "connect" && app !== "stream") {
+        toastr.info("แอปนี้กำลังจะมา เร็วๆ นี้! 📱", "TinyPhone");
+        return;
+    }
+    clearStreamTimer();   // ออกจากแอปอื่น = หยุด timer stream
+    $("#tinyfeed-home").addClass("tinyfeed-hidden");
+    $(".tinyfeed-app").addClass("tinyfeed-hidden");
+    $("#tinyfeed-home-btn, #tinyfeed-settings-btn").removeClass("tinyfeed-hidden");
+    $("#tinyfeed-back").addClass("tinyfeed-hidden");
+
+    if (app === "feed") {
+        currentApp = "feed";
+        $("#tinyfeed-app-feed").removeClass("tinyfeed-hidden");
+        $(".tinyfeed-title").text("TinyFeed");
+        $(".tinyfeed-tabs").removeClass("tinyfeed-hidden");
+        switchTab(activeTab);
+    } else if (app === "connect") {
+        currentApp = "connect";
+        $("#tinyfeed-app-connect").removeClass("tinyfeed-hidden");
+        $(".tinyfeed-title").text("TinyConnect");
+        openConnectList();
+    } else {
+        currentApp = "stream";
+        $("#tinyfeed-app-stream").removeClass("tinyfeed-hidden");
+        $(".tinyfeed-title").text("TinyStream");
+        renderStream();
+        maybeStartStreamTimer();
+    }
+}
+
+// ===== TinyStream: ไลฟ์สตรีม + คอมเมนต์สด =====
+let isGeneratingStream = false;
+let streamTimer = null;
+
+function getStreamData() {
+    const data = getFeedData();
+    if (!data.stream || typeof data.stream !== "object") {
+        data.stream = { live: false, title: "", viewers: 0, comments: [] };
+    }
+    if (!Array.isArray(data.stream.comments)) data.stream.comments = [];
+    return data.stream;
+}
+
+// สตรีมเมอร์ปัจจุบัน { name, avatarItem }
+function getStreamer() {
+    if (getSetting("streamStreamer") === "user") {
+        return { name: getUserName(), avatarItem: { isUser: true, author: getUserName() } };
+    }
+    const char = getCurrentCharacter();
+    const name = (char && char.name) || "ตัวละคร";
+    return { name, avatarItem: { isMain: true, author: name } };
+}
+
+function clearStreamTimer() {
+    if (streamTimer) { clearInterval(streamTimer); streamTimer = null; }
+}
+
+function maybeStartStreamTimer() {
+    clearStreamTimer();
+    if (currentApp === "stream" && getStreamData().live && getSetting("streamCommentMode") === "auto") {
+        const sec = Math.max(4, parseInt(getSetting("streamAutoInterval"), 10) || 12);
+        streamTimer = setInterval(() => {
+            if (!isGeneratingStream) loadLiveComments({ silent: true });
+        }, sec * 1000);
+    }
+}
+
+function renderStream() {
+    const s = getStreamData();
+    const streamer = getStreamer();
+    $("#tinyfeed-app-stream .tinyfeed-stream-avatar").html(makeAvatar(streamer.avatarItem));
+    $("#tinyfeed-app-stream .tinyfeed-stream-title").text(s.live ? (s.title || "กำลังไลฟ์สด") : "ยังไม่ได้เริ่มไลฟ์");
+    $("#tinyfeed-app-stream .tinyfeed-stream-streamer").text(s.live ? `โดย ${streamer.name}` : "");
+    $("#tinyfeed-stream-toggle").text(s.live ? "จบไลฟ์" : "เริ่มไลฟ์");
+    $(".tinyfeed-stream-live").toggleClass("tinyfeed-hidden", !s.live);
+    $(".tinyfeed-stream-viewers").toggleClass("tinyfeed-hidden", !s.live).text(`👁 ${formatCount(s.viewers)}`);
+    $(".tinyfeed-stream-compose").toggleClass("tinyfeed-hidden", !s.live);
+    // ปุ่มโหลดคอมเมนต์โชว์เฉพาะโหมด manual + กำลังไลฟ์
+    $("#tinyfeed-stream-loadcomments").toggleClass("tinyfeed-hidden",
+        !(s.live && getSetting("streamCommentMode") === "manual"));
+
+    const rows = s.comments.map((c) => {
+        if (c.isSystem) {
+            return `<div class="tinyfeed-stream-divider"><span>${c.text}</span></div>`;
+        }
+        return `
+        <div class="tinyfeed-stream-comment${c.isStreamer ? " tinyfeed-stream-comment-streamer" : ""}">
+            ${makeAvatar(c.isUser ? { isUser: true, author: c.author } : { author: c.author, avatar: c.avatar || "" })}
+            <div class="tinyfeed-stream-comment-body">
+                <span class="tinyfeed-stream-comment-author">${escapeText(c.author)}</span>
+                <span class="tinyfeed-stream-comment-text">${c.text}</span>
+            </div>
+        </div>`;
+    }).join("");
+    const box = $("#tinyfeed-stream-comments");
+    box.html(rows);
+    if (box[0]) box.scrollTop(box[0].scrollHeight);
+}
+
+async function toggleStream() {
+    const s = getStreamData();
+    if (s.live) {
+        s.live = false;
+        s.comments.push({ isSystem: true, text: "⏹ จบไลฟ์แล้ว", ts: Date.now() });
+        clearStreamTimer();
+        saveFeedData();
+        renderStream();
+        return;
+    }
+    // เริ่มไลฟ์: ให้ AI ตั้งหัวข้อจากเนื้อเรื่อง
+    if (isGeneratingStream) return;
+    isGeneratingStream = true;
+    const btn = $("#tinyfeed-stream-toggle");
+    btn.prop("disabled", true).text("กำลังเริ่ม...");
+    try {
+        const streamer = getStreamer();
+        const q = `[คำสั่งระบบ — ไม่ใช่ส่วนของเนื้อเรื่อง] ${streamer.name} กำลังจะไลฟ์สดในแอปสตรีมมิ่ง ` +
+            `ตั้งหัวข้อไลฟ์สั้นๆ 1 บรรทัดให้เข้ากับสถานการณ์ในเนื้อเรื่องตอนนี้ ใช้ภาษาเดียวกับเนื้อเรื่อง ตอบเฉพาะหัวข้อ ไม่ต้องมีอย่างอื่น`;
+        const raw = await tinyGenerate(q, 60);
+        const title = stripReasoning(raw).split("\n")[0].replace(/^["'“”]+|["'“”]+$/g, "").trim();
+        s.title = title || "ไลฟ์สด";
+        s.live = true;
+        s.viewers = 20 + Math.floor(Math.random() * 4800);
+        s.comments.push({ isSystem: true, text: escapeText(`🔴 เริ่มไลฟ์ — ${s.title}`), ts: Date.now() });
+        saveFeedData();
+        renderStream();
+        maybeStartStreamTimer();
+        loadLiveComments({ silent: true });   // เปิดมามีคอมเมนต์ทักทายเลย
+    } catch (e) {
+        console.error(`[${extensionName}] start stream failed:`, e);
+        toastr.error("เริ่มไลฟ์ไม่สำเร็จ ลองใหม่นะ", "TinyStream");
+    } finally {
+        isGeneratingStream = false;
+        btn.prop("disabled", false);
+        renderStream();
+    }
+}
+
+async function loadLiveComments(opts) {
+    opts = opts || {};
+    const s = getStreamData();
+    if (!s.live || isGeneratingStream) return;
+    isGeneratingStream = true;
+    const btn = $("#tinyfeed-stream-loadcomments");
+    btn.addClass("tinyfeed-generating").prop("disabled", true);
+    try {
+        const streamer = getStreamer();
+        const npcNames = getNpcs().map((n) => String(n.name || "").trim()).filter(Boolean);
+        const recent = s.comments.slice(-6).map((c) => `${c.author}: ${htmlToPlain(c.text)}`).join("\n");
+        const q = `[คำสั่งระบบ — ไม่ใช่ส่วนของเนื้อเรื่อง] นี่คือไลฟ์สดของ ${streamer.name} หัวข้อ "${s.title}". ` +
+            `เขียนคอมเมนต์สดจากผู้ชม 3-5 คน (ชื่อผู้ชมสุ่มหลากหลาย${npcNames.length ? " หรือใช้ NPC เหล่านี้บ้าง: " + npcNames.join(", ") : ""}) ` +
+            `รีแอคกับไลฟ์แบบสมจริง สั้นๆ เหมือนแชตสด ใช้ภาษาเดียวกับเนื้อเรื่อง ห้ามพูดแทนผู้ใช้.` +
+            (String(getSetting("streamExtraPrompt") || "").trim() ? ` คำสั่งเพิ่มเติม: ${String(getSetting("streamExtraPrompt")).trim()}.` : "") +
+            (recent ? `\nคอมเมนต์ล่าสุด (อย่าซ้ำ):\n${recent}\n` : "") +
+            `\nตอบแต่ละคอมเมนต์บรรทัดละอันในรูปแบบ:\nCOMMENT: <ชื่อผู้ชม> | <ข้อความ>`;
+        const raw = await tinyGenerate(q, Math.max(1, parseInt(getSetting("streamTokens"), 10) || 300));
+        const list = parseCommentLines(raw, streamer.name)
+            .map((c) => ({ author: c.author, avatar: getNpcAvatar(c.author), text: c.text, ts: Date.now() }));
+        if (list.length) {
+            s.comments.push(...list);
+            saveFeedData();
+            renderStream();
+        }
+    } catch (e) {
+        console.error(`[${extensionName}] live comments failed:`, e);
+        if (!opts.silent) toastr.error("โหลดคอมเมนต์ไม่สำเร็จ", "TinyStream");
+    } finally {
+        isGeneratingStream = false;
+        btn.removeClass("tinyfeed-generating").prop("disabled", false);
+    }
+}
+
+async function sendStreamComment(text) {
+    const clean = String(text || "").trim();
+    const s = getStreamData();
+    if (!clean || !s.live) return;
+    s.comments.push({ author: getUserName(), isUser: true, text: escapeHtml(clean), ts: Date.now() });
+    saveFeedData();
+    $("#tinyfeed-stream-input").val("");
+    renderStream();
+    // โหมด onupdate: คอมเมนต์เราทำให้ผู้ชมรีแอคต่อ
+    if (getSetting("streamCommentMode") === "onupdate") {
+        await loadLiveComments({ silent: true });
+    }
+}
+
+// ===== TinyConnect: แชตสไตล์ไลน์ =====
+let activeThread = null;
+let activeThreadName = "";
+let isConnectReplying = false;
+
+function getConnectData() {
+    const data = getFeedData();
+    if (!data.connect || typeof data.connect !== "object") data.connect = { threads: {} };
+    if (!data.connect.threads) data.connect.threads = {};
+    return data.connect;
+}
+
+function getThread(key) {
+    const c = getConnectData();
+    if (!Array.isArray(c.threads[key])) c.threads[key] = [];
+    return c.threads[key];
+}
+
+// รายชื่อ contact = ตัวละครหลัก + NPC ประจำ
+function getConnectContacts() {
+    const contacts = [];
+    const char = getCurrentCharacter();
+    if (char) contacts.push({ key: "main", name: char.name, isMain: true, avatar: "" });
+    for (const npc of getNpcs()) {
+        const name = String(npc.name || "").trim();
+        if (name) contacts.push({ key: "npc:" + name, name, isMain: false, avatar: npc.avatar || "" });
+    }
+    return contacts;
+}
+
+function contactAvatarItem(c) {
+    return c.isMain ? { isMain: true, author: c.name } : { author: c.name, avatar: c.avatar || "" };
+}
+
+function isConnectThreadOpen() {
+    return !$("#tinyfeed-connect-thread").hasClass("tinyfeed-hidden");
+}
+
+function openConnectList() {
+    activeThread = null;
+    $("#tinyfeed-connect-thread").addClass("tinyfeed-hidden");
+    $("#tinyfeed-connect-list").removeClass("tinyfeed-hidden");
+    $("#tinyfeed-home-btn, #tinyfeed-settings-btn").removeClass("tinyfeed-hidden");
+    $("#tinyfeed-back").addClass("tinyfeed-hidden");
+    $(".tinyfeed-title").text("TinyConnect");
+    renderConnectList();
+}
+
+function renderConnectList() {
+    const contacts = getConnectContacts();
+    if (!contacts.length) {
+        $("#tinyfeed-connect-list").html(emptyStateHtml("fa-comment-dots", "ยังไม่มีคนให้คุย", "เปิดแชทที่มีตัวละคร หรือเพิ่ม NPC ประจำในแอป TinyFeed"));
+        return;
+    }
+    const threads = getConnectData().threads;
+    const html = contacts.map((c) => {
+        const t = threads[c.key] || [];
+        const last = t.length ? htmlToPlain(t[t.length - 1].text).slice(0, 42) : "แตะเพื่อเริ่มแชต";
+        return `<div class="tinyfeed-connect-contact" data-key="${escapeAttr(c.key)}" data-name="${escapeAttr(c.name)}">
+            ${makeAvatar(contactAvatarItem(c))}
+            <div class="tinyfeed-connect-contact-body">
+                <div class="tinyfeed-connect-contact-name">${escapeText(c.name)}</div>
+                <div class="tinyfeed-connect-contact-last">${escapeText(last)}</div>
+            </div>
+        </div>`;
+    }).join("");
+    $("#tinyfeed-connect-list").html(html);
+}
+
+function openThread(key, name) {
+    activeThread = key;
+    activeThreadName = name;
+    $("#tinyfeed-connect-list").addClass("tinyfeed-hidden");
+    $("#tinyfeed-connect-thread").removeClass("tinyfeed-hidden");
+    $("#tinyfeed-home-btn, #tinyfeed-settings-btn").addClass("tinyfeed-hidden");
+    $("#tinyfeed-back").removeClass("tinyfeed-hidden");
+    $(".tinyfeed-title").text(name);
+    renderThread();
+    $("#tinyfeed-connect-input").trigger("focus");
+}
+
+function renderThread() {
+    if (!activeThread) return;
+    const msgs = getThread(activeThread);
+    const contact = getConnectContacts().find((c) => c.key === activeThread)
+        || { name: activeThreadName, isMain: false, avatar: "" };
+    const rows = msgs.map((m) => {
+        if (m.from === "user") {
+            return `<div class="tinyfeed-msg tinyfeed-msg-user"><div class="tinyfeed-msg-bubble">${m.text}</div></div>`;
+        }
+        return `<div class="tinyfeed-msg tinyfeed-msg-contact">
+            ${makeAvatar(contactAvatarItem(contact))}
+            <div class="tinyfeed-msg-bubble">${m.text}</div>
+        </div>`;
+    }).join("");
+    const typing = isConnectReplying
+        ? `<div class="tinyfeed-msg tinyfeed-msg-contact">
+               ${makeAvatar(contactAvatarItem(contact))}
+               <div class="tinyfeed-msg-bubble tinyfeed-msg-typing">กำลังพิมพ์…</div>
+           </div>`
+        : "";
+    const box = $("#tinyfeed-connect-messages");
+    box.html(rows + typing);
+    if (box[0]) box.scrollTop(box[0].scrollHeight);   // เลื่อนลงล่างสุด
+}
+
+async function sendConnectMessage(text) {
+    const clean = String(text || "").trim();
+    if (!clean || !activeThread) return;
+    getThread(activeThread).push({ from: "user", text: escapeHtml(clean), ts: Date.now() });
+    saveFeedData();
+    $("#tinyfeed-connect-input").val("");
+    renderThread();
+    await generateConnectReply();
+}
+
+async function generateConnectReply() {
+    if (isConnectReplying || !activeThread) return;
+    const name = activeThreadName;
+    const you = getUserName();
+    const transcript = getThread(activeThread).slice(-12)
+        .map((m) => `${m.from === "user" ? you : name}: ${htmlToPlain(m.text)}`).join("\n");
+    const q =
+        `[คำสั่งระบบ — ไม่ใช่ส่วนของเนื้อเรื่อง] นี่คือแชตส่วนตัวในแอปแชต (คล้ายไลน์) ระหว่าง ${you} กับ ${name}. ` +
+        `ตอบข้อความล่าสุดในบทบาทของ ${name} แบบเป็นธรรมชาติ สั้นกระชับเหมือนแชตจริง (1-3 ประโยค) ` +
+        `ใช้ภาษาเดียวกับเนื้อเรื่อง ห้ามพูดหรือกระทำแทน ${you}.\n` +
+        (String(getSetting("connectExtraPrompt") || "").trim() ? `คำสั่งเพิ่มเติม: ${String(getSetting("connectExtraPrompt")).trim()}.\n` : "") +
+        `บทแชตล่าสุด:\n${transcript}\n` +
+        `ตอบเฉพาะข้อความของ ${name} เท่านั้น ไม่ต้องใส่ชื่อนำหน้า`;
+
+    isConnectReplying = true;
+    renderThread();   // โชว์ "กำลังพิมพ์…"
+    try {
+        const raw = await tinyGenerate(q, Math.max(1, parseInt(getSetting("connectTokens"), 10) || 200));
+        let reply = stripReasoning(raw).trim();
+        // ถ้าโมเดลห่อด้วย [... Message: ข้อความ] ให้ดึงเฉพาะเนื้อในออกมา
+        const wrapped = [...reply.matchAll(/\[[^\]]*?Message:\s*([^\]]+)\]/gi)];
+        if (wrapped.length) reply = wrapped.map((m) => m[1].trim()).join("\n");
+        // ตัดวงเล็บ/ป้ายกำกับที่หลงเหลือ + "ชื่อ:" นำหน้า
+        reply = reply.replace(/^\[|\]$/g, "").trim();
+        const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        reply = reply.replace(new RegExp(`^${esc}\\s*[:：]\\s*`, "i"), "").trim();
+        if (reply) {
+            getThread(activeThread).push({ from: "contact", text: escapeHtml(reply), ts: Date.now() });
+            saveFeedData();
+        } else {
+            toastr.warning("ยังไม่มีคำตอบกลับมา ลองใหม่นะ", "TinyConnect");
+        }
+    } catch (e) {
+        console.error(`[${extensionName}] connect reply failed:`, e);
+        toastr.error("ตอบแชตไม่สำเร็จ ลองใหม่นะ", "TinyConnect");
+    } finally {
+        isConnectReplying = false;
+        renderThread();
+    }
 }
 
 function closePhone() {
     $("#tinyfeed-overlay").removeClass("tinyfeed-visible");
+    clearStreamTimer();   // ปิดเครื่อง = หยุด timer สตรีม
     console.log(`[${extensionName}] Phone closed`);
 }
 
@@ -370,6 +750,34 @@ function renderComments(comments, limit) {
     return `<div class="tinyfeed-comments">${rows}${more}</div>`;
 }
 
+// Phase 2: แทรกฟีด/ข่าวเข้าประวัติแชทหลัก ให้โมเดล RP รับรู้ (เรียลไทม์)
+function updateChatInjection() {
+    const ctx = getContext();
+    if (typeof ctx.setExtensionPrompt !== "function") return;
+    const mode = getSetting("injectMode") || "off";
+    if (mode === "off") {
+        ctx.setExtensionPrompt("tinyfeed_inject", "", 1, 0);   // เคลียร์
+        return;
+    }
+    const data = getFeedData();
+    const count = Math.max(1, parseInt(getSetting("injectCount"), 10) || 5);
+    const depth = Math.max(0, parseInt(getSetting("injectDepth"), 10) || 4);
+    const blocks = [];
+    const posts = (data.feed || []).slice(0, count)
+        .map((p) => `- ${p.author}: ${htmlToPlain(p.text)}`);
+    if (posts.length) blocks.push(`โพสต์ล่าสุดบนโซเชียล TinyFeed:\n${posts.join("\n")}`);
+    if (mode === "both") {
+        const news = (data.news || []).slice(0, count)
+            .map((n) => `- [${htmlToPlain(n.source)}] ${htmlToPlain(n.title)}: ${htmlToPlain(n.summary)}`);
+        if (news.length) blocks.push(`ข่าวล่าสุดในโลก:\n${news.join("\n")}`);
+    }
+    const text = blocks.length
+        ? `[ข้อมูลจากแอปโซเชียล TinyFeed ที่ตัวละครรับรู้ได้ ใช้อ้างอิงในบทบาทได้ตามเหมาะสม]\n${blocks.join("\n\n")}`
+        : "";
+    // position 1 = IN_CHAT, role 0 = SYSTEM
+    ctx.setExtensionPrompt("tinyfeed_inject", text, 1, depth, false, 0);
+}
+
 // Stage 11: empty state + skeleton
 function emptyStateHtml(icon, title, sub) {
     return `<div class="tinyfeed-empty">
@@ -398,6 +806,7 @@ function renderFeed() {
     if (!data.feed.length) {
         $("#tinyfeed-feed-list").html(emptyStateHtml("fa-feather-pointed", "ยังไม่มีโพสต์", "เขียนโพสต์แรก หรือกด “ให้ตัวละครโพสต์” ได้เลย"));
         renderComposeAvatar();
+        updateChatInjection();
         return;
     }
     const html = data.feed.map((post) => `
@@ -427,6 +836,7 @@ function renderFeed() {
     `).join("");
     $("#tinyfeed-feed-list").html(html);
     renderComposeAvatar();
+    updateChatInjection();
 }
 
 // อัปเดตรูป avatar ในช่องเขียนโพสต์ให้ตรงกับ persona ปัจจุบัน
@@ -440,6 +850,7 @@ function renderNews() {
     const data = getFeedData();
     if (!data.news.length) {
         $("#tinyfeed-news-list").html(emptyStateHtml("fa-newspaper", "ยังไม่มีข่าว", "กด “สร้างข่าวใหม่” เพื่อให้ AI แต่งข่าวเสริมโลกของเรื่อง"));
+        updateChatInjection();
         return;
     }
     const html = data.news.map((news) => `
@@ -456,6 +867,7 @@ function renderNews() {
         </div>
     `).join("");
     $("#tinyfeed-news-list").html(html);
+    updateChatInjection();
 }
 
 let activeTab = "feed";
@@ -591,25 +1003,105 @@ function stripReasoning(raw) {
 // ===== Phase 2: ชั้น generation รองรับ API แยก =====
 
 // สร้าง context เนื้อเรื่อง (ใช้เฉพาะตอนยิงไป profile แยก เพราะไม่มี context RP ติดไปให้)
-function buildContextPreamble() {
+// ดึงคำอธิบาย persona ปัจจุบัน (มีหลายที่เก็บ ลองตามลำดับ)
+function getPersonaDescription() {
+    try {
+        const pu = getContext().powerUserSettings || {};
+        if (pu.persona_description) return String(pu.persona_description);
+        const file = getContext().user_avatar || (stScriptModule && stScriptModule.user_avatar);
+        const byAvatar = pu.persona_descriptions && file ? pu.persona_descriptions[file] : null;
+        return (byAvatar && byAvatar.description) ? String(byAvatar.description) : "";
+    } catch (e) {
+        return "";
+    }
+}
+
+async function buildContextPreamble() {
     try {
         const ctx = getContext();
-        const parts = [];
+        const sections = [];
+        const push = (title, body) => {
+            const b = String(body == null ? "" : body).trim();
+            if (b) sections.push(`【${title}】\n${b}`);
+        };
+
+        // --- ตัวละครหลัก ---
         const char = getCurrentCharacter();
-        if (char) parts.push(`ตัวละครหลัก: ${char.name}`);
         const chId = ctx.characterId;
-        if (chId != null && ctx.characters && ctx.characters[chId] && ctx.characters[chId].description) {
-            parts.push(`ข้อมูลตัวละคร: ${htmlToPlain(ctx.characters[chId].description).slice(0, 600)}`);
+        const card = (chId != null && ctx.characters) ? ctx.characters[chId] : null;
+        const charLines = [];
+        if (char) charLines.push(`ชื่อ: ${char.name}`);
+        if (card) {
+            if (card.description) charLines.push(`คำอธิบาย:\n${htmlToPlain(card.description)}`);
+            if (card.personality) charLines.push(`บุคลิก:\n${htmlToPlain(card.personality)}`);
+            if (card.scenario) charLines.push(`ฉาก:\n${htmlToPlain(card.scenario)}`);
         }
-        parts.push(`ผู้ใช้: ${getUserName()}`);
+        push("ตัวละครหลัก", charLines.join("\n"));
+
+        // --- ผู้ใช้ / Persona ---
+        const personaDesc = getPersonaDescription();
+        push("ผู้ใช้ (Persona)",
+            `ชื่อ: ${getUserName()}` + (personaDesc ? `\nคำอธิบาย:\n${htmlToPlain(personaDesc)}` : ""));
+
+        // --- World Info (ทุกตำแหน่งที่ ST inject) ---
+        try {
+            if (typeof ctx.getWorldInfoPrompt === "function" && Array.isArray(ctx.chat) && ctx.chat.length) {
+                // ⚠️ ST ส่ง chat เป็น array ของ string "ชื่อ: ข้อความ" และ reverse (ใหม่→เก่า)
+                const chatForWI = ctx.chat.map((m) => `${m.name}: ${m.mes}`).reverse();
+                const scanData = {
+                    personaDescription: personaDesc || "",
+                    characterDescription: (card && card.description) || "",
+                    characterPersonality: (card && card.personality) || "",
+                    characterDepthPrompt: "",
+                    scenario: (card && card.scenario) || "",
+                    creatorNotes: (card && card.creator_notes) || "",
+                    trigger: "normal",
+                };
+                const wi = await ctx.getWorldInfoPrompt(chatForWI, ctx.maxContext || 4096, true, scanData) || {};
+                const wiParts = [];
+                const add = (label, val) => {
+                    const t = String(val || "").trim();
+                    if (t) wiParts.push(`— ${label} —\n${htmlToPlain(t)}`);
+                };
+                add("ก่อนคำอธิบายตัวละคร", wi.worldInfoBefore);
+                add("หลังคำอธิบายตัวละคร", wi.worldInfoAfter);
+                if (Array.isArray(wi.anBefore) && wi.anBefore.length) add("ก่อน Author's Note", wi.anBefore.join("\n"));
+                if (Array.isArray(wi.anAfter) && wi.anAfter.length) add("หลัง Author's Note", wi.anAfter.join("\n"));
+                if (Array.isArray(wi.worldInfoDepth) && wi.worldInfoDepth.length) {
+                    const d = wi.worldInfoDepth
+                        .map((x) => `(depth ${x.depth}) ${(x.entries || []).join(" | ")}`).join("\n");
+                    add("แทรกในบทสนทนา", d);
+                }
+                if (Array.isArray(wi.worldInfoExamples) && wi.worldInfoExamples.length) {
+                    add("ตัวอย่างบทสนทนา", wi.worldInfoExamples
+                        .map((e) => (typeof e === "string" ? e : (e && e.content) || "")).join("\n"));
+                }
+                if (wi.outletEntries && typeof wi.outletEntries === "object") {
+                    for (const [k, v] of Object.entries(wi.outletEntries)) {
+                        if (Array.isArray(v) && v.length) add(`Outlet: ${k}`, v.join("\n"));
+                    }
+                }
+                let wiStr = wiParts.join("\n\n").trim();
+                const wiLimit = parseInt(getSetting("worldInfoLimit"), 10);
+                if (wiStr && Number.isFinite(wiLimit) && wiLimit > 0 && wiStr.length > wiLimit) {
+                    wiStr = wiStr.slice(0, wiLimit) + "…";
+                }
+                push("World Info", wiStr);
+            }
+        } catch (e) {
+            console.warn(`[${extensionName}] ดึง World Info ไม่สำเร็จ:`, e);
+        }
+
+        // --- บทสนทนาล่าสุด ---
         const n = Math.max(0, parseInt(getSetting("apiContextMessages"), 10) || 0);
         if (n > 0 && Array.isArray(ctx.chat) && ctx.chat.length) {
-            const msgs = ctx.chat.slice(-n).map((m) => `${m.name}: ${htmlToPlain(m.mes)}`);
-            if (msgs.length) parts.push(`บทสนทนาล่าสุด:\n${msgs.join("\n")}`);
+            push("บทสนทนาล่าสุด", ctx.chat.slice(-n).map((m) => `${m.name}: ${htmlToPlain(m.mes)}`).join("\n"));
         }
-        if (!parts.length) return "";
-        return `=== บริบทเนื้อเรื่องปัจจุบัน (อ้างอิงเท่านั้น) ===\n${parts.join("\n")}\n=== จบบริบท ===\n\n`;
+
+        if (!sections.length) return "";
+        return `=== บริบทเนื้อเรื่องปัจจุบัน (อ้างอิงเท่านั้น) ===\n\n${sections.join("\n\n")}\n\n=== จบบริบท ===\n\n`;
     } catch (e) {
+        console.warn(`[${extensionName}] buildContextPreamble ล้มเหลว:`, e);
         return "";
     }
 }
@@ -620,7 +1112,8 @@ async function tinyGenerate(prompt, maxTokens) {
     const profileId = getSetting("apiProfile");
     if (profileId && ctx.ConnectionManagerRequestService) {
         try {
-            const full = buildContextPreamble() + prompt;
+            const full = (await buildContextPreamble()) + prompt;
+            console.log(`[${extensionName}] prompt → profile (${full.length} ตัวอักษร):`, full);
             const res = await ctx.ConnectionManagerRequestService.sendRequest(profileId, full, maxTokens);
             const content = res && typeof res.content === "string" ? res.content : "";
             if (content) return content;
@@ -692,18 +1185,22 @@ async function generateFeedPost(opts) {
         }
     }
 
+    const extra = String(getSetting("postExtraPrompt") || "").trim();
+    const extraLine = extra ? `คำสั่งเพิ่มเติมจากผู้ใช้: ${extra}. ` : "";
+
     const quietPrompt =
         `[คำสั่งระบบ — ไม่ใช่ส่วนของเนื้อเรื่อง] ` +
         `เขียนโพสต์โซเชียลมีเดียสั้นๆ 1 โพสต์ (1-3 ประโยค) ที่จะปรากฏบนฟีด ` +
         `สะท้อนอารมณ์หรือสถานการณ์ในเนื้อเรื่องตอนนี้. ` +
         rosterLine +
         `ใช้ภาษาเดียวกับเนื้อเรื่อง ห้ามพูดแทนหรือกระทำแทนผู้ใช้. ` +
+        extraLine +
         historyLine +
         `ตอบกลับตามรูปแบบนี้เท่านั้น ห้ามมีข้อความอื่น:\n` +
         `NAME: <ชื่อผู้โพสต์>\nPOST: <ข้อความโพสต์>`;
 
     try {
-        const raw = await tinyGenerate(quietPrompt, 400);
+        const raw = await tinyGenerate(quietPrompt, Math.max(1, parseInt(getSetting("postTokens"), 10) || 400));
         const { author, text } = parseGeneratedPost(raw, charName);
         if (!text) {
             toastr.warning("AI ไม่ได้ส่งข้อความโพสต์กลับมา ลองใหม่อีกครั้งนะ", "TinyFeed");
@@ -910,15 +1407,18 @@ async function generateNews(opts) {
         if (recent.length) historyLine = `\nหัวข้อข่าวที่มีอยู่แล้ว (ห้ามซ้ำ):\n${recent.join("\n")}\n`;
     }
 
+    const extra = String(getSetting("newsExtraPrompt") || "").trim();
+    const extraLine = extra ? ` คำสั่งเพิ่มเติมจากผู้ใช้: ${extra}.` : "";
+
     const q =
         `[คำสั่งระบบ — ไม่ใช่ส่วนของเนื้อเรื่อง] เขียนข่าว/บทความสั้น 1 ชิ้นที่จะปรากฏบนหน้าข่าวสาร ` +
         `สะท้อนสถานการณ์บ้านเมืองหรือเหตุการณ์รอบข้างในโลกของเนื้อเรื่อง เสริมบรรยากาศ worldbuilding ` +
-        `ใช้ภาษาเดียวกับเนื้อเรื่อง ห้ามพูดแทนผู้ใช้.` + historyLine +
+        `ใช้ภาษาเดียวกับเนื้อเรื่อง ห้ามพูดแทนผู้ใช้.` + extraLine + historyLine +
         `\nตอบตามรูปแบบนี้เท่านั้น:\n` +
         `SOURCE: <ชื่อสำนักข่าว>\nTITLE: <หัวข้อข่าว>\nSUMMARY: <สรุปสั้น 1-2 ประโยค>\nBODY: <เนื้อหาเต็ม หลายย่อหน้าได้>`;
 
     try {
-        const raw = await tinyGenerate(q, 500);
+        const raw = await tinyGenerate(q, Math.max(1, parseInt(getSetting("newsTokens"), 10) || 500));
         const parsed = parseGeneratedNews(raw);
         if (!parsed.title && !parsed.body) {
             if (!opts.silent) toastr.warning("AI ไม่ได้ส่งข่าวกลับมา ลองใหม่นะ", "TinyFeed");
@@ -1075,13 +1575,12 @@ function dismissNotif() {
     $("#tinyfeed-notif").removeClass("tinyfeed-notif-show");
 }
 
-// กดแจ้งเตือน → เปิด TinyFeed ไปที่แท็บที่เกี่ยวข้อง
+// กดแจ้งเตือน → เปิดแอป Feed ไปที่แท็บที่เกี่ยวข้อง
 function openFeedFromNotif() {
     dismissNotif();
-    $("#tinyfeed-back").addClass("tinyfeed-hidden");
-    $(".tinyfeed-tabs").removeClass("tinyfeed-hidden");
+    openPhone();          // เปิดเครื่อง (ไปหน้าโฮมก่อน)
+    openApp("feed");      // เข้าแอป Feed
     switchTab(notifTab);
-    openPhone();
 }
 
 // ขยายช่องเขียนโพสต์ (ช่องเดิมโตขึ้น + โชว์ปุ่ม)
@@ -1129,11 +1628,13 @@ function showDetail(html) {
     $(".tinyfeed-panel").addClass("tinyfeed-hidden");
     $("#tinyfeed-detail").removeClass("tinyfeed-hidden");
     $(".tinyfeed-tabs").addClass("tinyfeed-hidden");
+    $("#tinyfeed-home-btn, #tinyfeed-settings-btn").addClass("tinyfeed-hidden");
     $("#tinyfeed-back").removeClass("tinyfeed-hidden");
 }
 
 function closeDetail() {
     $("#tinyfeed-back").addClass("tinyfeed-hidden");
+    $("#tinyfeed-home-btn, #tinyfeed-settings-btn").removeClass("tinyfeed-hidden");
     $(".tinyfeed-tabs").removeClass("tinyfeed-hidden");
     switchTab(activeTab);
 }
@@ -1176,8 +1677,25 @@ function populateSettings() {
     $("#tinyfeed-cfg-news-history").val(getSetting("newsHistoryCount"));
     $("#tinyfeed-cfg-notif").prop("checked", Boolean(getSetting("notificationsEnabled")));
 
+    $("#tinyfeed-cfg-stream-streamer").val(getSetting("streamStreamer") || "char");
+    $("#tinyfeed-cfg-stream-mode").val(getSetting("streamCommentMode") || "manual");
+    $("#tinyfeed-cfg-stream-interval").val(getSetting("streamAutoInterval"));
+    $("#tinyfeed-cfg-stream-tokens").val(getSetting("streamTokens"));
+    $("#tinyfeed-cfg-stream-extra").val(getSetting("streamExtraPrompt"));
+    $("#tinyfeed-cfg-connect-tokens").val(getSetting("connectTokens"));
+    $("#tinyfeed-cfg-connect-extra").val(getSetting("connectExtraPrompt"));
+
     populateApiProfiles();
     $("#tinyfeed-cfg-api-context").val(getSetting("apiContextMessages"));
+    $("#tinyfeed-cfg-wi-limit").val(getSetting("worldInfoLimit"));
+
+    $("#tinyfeed-cfg-post-tokens").val(getSetting("postTokens"));
+    $("#tinyfeed-cfg-post-extra").val(getSetting("postExtraPrompt"));
+    $("#tinyfeed-cfg-news-tokens").val(getSetting("newsTokens"));
+    $("#tinyfeed-cfg-news-extra").val(getSetting("newsExtraPrompt"));
+    $("#tinyfeed-cfg-inject-mode").val(getSetting("injectMode") || "off");
+    $("#tinyfeed-cfg-inject-count").val(getSetting("injectCount"));
+    $("#tinyfeed-cfg-inject-depth").val(getSetting("injectDepth"));
 }
 
 // เติมรายชื่อ connection profile ลง dropdown (จาก Connection Manager ของ ST)
@@ -1195,23 +1713,35 @@ function populateApiProfiles() {
     sel.html(html).val(getSetting("apiProfile") || "");
 }
 
+let settingsReturn = "feed";   // แอปที่จะกลับไปหลังปิด settings
+
 function openSettings() {
     populateSettings();
+    settingsReturn = currentApp === "settings" ? settingsReturn : currentApp;   // จำแอปเดิม
+    // settings-screen อยู่ใน app-feed → ต้องโชว์ app-feed เป็น host แต่ซ่อนเนื้อฟีด
+    $("#tinyfeed-home").addClass("tinyfeed-hidden");
+    $(".tinyfeed-app").addClass("tinyfeed-hidden");
+    $("#tinyfeed-app-feed").removeClass("tinyfeed-hidden");
     $(".tinyfeed-panel").addClass("tinyfeed-hidden");
     $("#tinyfeed-settings-screen").removeClass("tinyfeed-hidden");
     $(".tinyfeed-tabs").addClass("tinyfeed-hidden");
+    $("#tinyfeed-home-btn, #tinyfeed-settings-btn").addClass("tinyfeed-hidden");
     $("#tinyfeed-back").removeClass("tinyfeed-hidden");
+    $(".tinyfeed-title").text("ตั้งค่า");
+    currentApp = "settings";
 }
 
 function closeSettings() {
     $("#tinyfeed-back").addClass("tinyfeed-hidden");
-    $(".tinyfeed-tabs").removeClass("tinyfeed-hidden");
-    switchTab(activeTab);
+    if (settingsReturn === "home" || !settingsReturn) goHome();
+    else openApp(settingsReturn);   // feed / connect / stream
 }
 
 // ปุ่มย้อนกลับใช้ร่วมกัน (settings หรือ detail)
 function handleBack() {
-    if (isSettingsOpen()) {
+    if (currentApp === "connect" && isConnectThreadOpen()) {
+        openConnectList();   // จากห้องแชต → กลับรายชื่อ
+    } else if (isSettingsOpen()) {
         closeSettings();
     } else {
         closeDetail();
@@ -1255,6 +1785,8 @@ jQuery(async () => {
             renderFeed();
             renderNews();
             if (isSettingsOpen()) populateSettings();   // อัปเดตชื่อ/ลิงก์รูปตัวละครตามแชทใหม่
+            if (currentApp === "connect") openConnectList();   // contact/แชตเปลี่ยนตามแชท
+            if (currentApp === "stream") { clearStreamTimer(); renderStream(); maybeStartStreamTimer(); }
             console.log(`[${extensionName}] Chat changed, feed reloaded`);
         });
 
@@ -1269,6 +1801,41 @@ jQuery(async () => {
         $(document).on("click", "#tinyfeed-theme", toggleTheme);
         $(document).on("click", "#tinyfeed-overlay", function (e) {
             if (e.target.id === "tinyfeed-overlay") closePhone();
+        });
+
+        // App Shell: ปุ่ม home + ไอคอนแอปบนหน้าโฮม
+        $(document).on("click", "#tinyfeed-home-btn", goHome);
+        $(document).on("click", ".tinyfeed-app-icon", function () {
+            openApp($(this).data("app"));
+        });
+
+        // TinyConnect: เข้าห้องแชต + ส่งข้อความ
+        $(document).on("click", ".tinyfeed-connect-contact", function () {
+            openThread($(this).data("key"), $(this).data("name"));
+        });
+        $(document).on("click", "#tinyfeed-connect-send", function () {
+            sendConnectMessage($("#tinyfeed-connect-input").val());
+        });
+        $(document).on("keydown", "#tinyfeed-connect-input", function (e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                sendConnectMessage($(this).val());
+            }
+        });
+
+        // TinyStream: เริ่ม/จบไลฟ์ + โหลดคอมเมนต์ + ส่งคอมเมนต์
+        $(document).on("click", "#tinyfeed-stream-toggle", toggleStream);
+        $(document).on("click", "#tinyfeed-stream-loadcomments", function () {
+            loadLiveComments();
+        });
+        $(document).on("click", "#tinyfeed-stream-send", function () {
+            sendStreamComment($("#tinyfeed-stream-input").val());
+        });
+        $(document).on("keydown", "#tinyfeed-stream-input", function (e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                sendStreamComment($(this).val());
+            }
         });
 
         // Stage 2: render mock + ผูกแท็บ
@@ -1459,6 +2026,70 @@ jQuery(async () => {
             let v = parseInt($(this).val(), 10);
             if (!Number.isFinite(v) || v < 0) v = 0;
             setSetting("apiContextMessages", v);
+        });
+        $(document).on("input", "#tinyfeed-cfg-wi-limit", function () {
+            let v = parseInt($(this).val(), 10);
+            if (!Number.isFinite(v) || v < 0) v = 0;
+            setSetting("worldInfoLimit", v);
+        });
+        // TinyStream config
+        $(document).on("change", "#tinyfeed-cfg-stream-streamer", function () {
+            setSetting("streamStreamer", $(this).val());
+            if (currentApp === "stream") renderStream();
+        });
+        $(document).on("change", "#tinyfeed-cfg-stream-mode", function () {
+            setSetting("streamCommentMode", $(this).val());
+            if (currentApp === "stream") { renderStream(); maybeStartStreamTimer(); }
+        });
+        $(document).on("input", "#tinyfeed-cfg-stream-interval", function () {
+            let v = parseInt($(this).val(), 10);
+            setSetting("streamAutoInterval", Number.isFinite(v) && v >= 4 ? v : 12);
+            if (currentApp === "stream") maybeStartStreamTimer();
+        });
+        $(document).on("input", "#tinyfeed-cfg-stream-tokens", function () {
+            let v = parseInt($(this).val(), 10);
+            setSetting("streamTokens", Number.isFinite(v) && v > 0 ? v : 300);
+        });
+        $(document).on("input", "#tinyfeed-cfg-stream-extra", function () {
+            setSetting("streamExtraPrompt", $(this).val());
+        });
+        $(document).on("input", "#tinyfeed-cfg-connect-tokens", function () {
+            let v = parseInt($(this).val(), 10);
+            setSetting("connectTokens", Number.isFinite(v) && v > 0 ? v : 200);
+        });
+        $(document).on("input", "#tinyfeed-cfg-connect-extra", function () {
+            setSetting("connectExtraPrompt", $(this).val());
+        });
+
+        // Phase 2: token + คำสั่งเสริม
+        $(document).on("input", "#tinyfeed-cfg-post-tokens", function () {
+            let v = parseInt($(this).val(), 10);
+            setSetting("postTokens", Number.isFinite(v) && v > 0 ? v : 400);
+        });
+        $(document).on("input", "#tinyfeed-cfg-post-extra", function () {
+            setSetting("postExtraPrompt", $(this).val());
+        });
+        $(document).on("input", "#tinyfeed-cfg-news-tokens", function () {
+            let v = parseInt($(this).val(), 10);
+            setSetting("newsTokens", Number.isFinite(v) && v > 0 ? v : 500);
+        });
+        $(document).on("input", "#tinyfeed-cfg-news-extra", function () {
+            setSetting("newsExtraPrompt", $(this).val());
+        });
+        // Phase 2: แทรกฟีดเข้าประวัติแชท
+        $(document).on("change", "#tinyfeed-cfg-inject-mode", function () {
+            setSetting("injectMode", $(this).val());
+            updateChatInjection();
+        });
+        $(document).on("input", "#tinyfeed-cfg-inject-count", function () {
+            let v = parseInt($(this).val(), 10);
+            setSetting("injectCount", Number.isFinite(v) && v > 0 ? v : 5);
+            updateChatInjection();
+        });
+        $(document).on("input", "#tinyfeed-cfg-inject-depth", function () {
+            let v = parseInt($(this).val(), 10);
+            setSetting("injectDepth", Number.isFinite(v) && v >= 0 ? v : 4);
+            updateChatInjection();
         });
 
         // โหลดค่าที่บันทึกไว้
