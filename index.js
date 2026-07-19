@@ -34,9 +34,6 @@ const defaultSettings = {
     newsHistoryCount: 5,
     // Stage 10: การแจ้งเตือน
     notificationsEnabled: true,
-    // Phase 2: โมเดล/API แยกสำหรับ TinyFeed ("" = ใช้ API หลัก, หรือ id ของ connection profile)
-    apiProfile: "",
-    apiContextMessages: 10,   // จำนวนข้อความล่าสุดที่แนบเป็น context เมื่อใช้ profile แยก
 };
 
 // อ่านค่า setting (fallback เป็นค่า default ถ้ายังไม่มี key นั้น — เผื่อผู้ใช้เก่าที่ settings ถูกสร้างก่อน key ใหม่)
@@ -588,51 +585,6 @@ function stripReasoning(raw) {
     return s.trim();
 }
 
-// ===== Phase 2: ชั้น generation รองรับ API แยก =====
-
-// สร้าง context เนื้อเรื่อง (ใช้เฉพาะตอนยิงไป profile แยก เพราะไม่มี context RP ติดไปให้)
-function buildContextPreamble() {
-    try {
-        const ctx = getContext();
-        const parts = [];
-        const char = getCurrentCharacter();
-        if (char) parts.push(`ตัวละครหลัก: ${char.name}`);
-        const chId = ctx.characterId;
-        if (chId != null && ctx.characters && ctx.characters[chId] && ctx.characters[chId].description) {
-            parts.push(`ข้อมูลตัวละคร: ${htmlToPlain(ctx.characters[chId].description).slice(0, 600)}`);
-        }
-        parts.push(`ผู้ใช้: ${getUserName()}`);
-        const n = Math.max(0, parseInt(getSetting("apiContextMessages"), 10) || 0);
-        if (n > 0 && Array.isArray(ctx.chat) && ctx.chat.length) {
-            const msgs = ctx.chat.slice(-n).map((m) => `${m.name}: ${htmlToPlain(m.mes)}`);
-            if (msgs.length) parts.push(`บทสนทนาล่าสุด:\n${msgs.join("\n")}`);
-        }
-        if (!parts.length) return "";
-        return `=== บริบทเนื้อเรื่องปัจจุบัน (อ้างอิงเท่านั้น) ===\n${parts.join("\n")}\n=== จบบริบท ===\n\n`;
-    } catch (e) {
-        return "";
-    }
-}
-
-// ยิง generation — เลือกใช้ API หลัก หรือ connection profile แยก (มี fallback)
-async function tinyGenerate(prompt, maxTokens) {
-    const ctx = getContext();
-    const profileId = getSetting("apiProfile");
-    if (profileId && ctx.ConnectionManagerRequestService) {
-        try {
-            const full = buildContextPreamble() + prompt;
-            const res = await ctx.ConnectionManagerRequestService.sendRequest(profileId, full, maxTokens);
-            const content = res && typeof res.content === "string" ? res.content : "";
-            if (content) return content;
-            console.warn(`[${extensionName}] profile ส่งข้อความว่าง — fallback ไป API หลัก`);
-        } catch (e) {
-            console.error(`[${extensionName}] profile request ล้มเหลว fallback ไป API หลัก:`, e);
-        }
-    }
-    // API หลัก (generateQuietPrompt แนบ context RP ให้เอง)
-    return await ctx.generateQuietPrompt({ quietPrompt: prompt, responseLength: maxTokens });
-}
-
 // แยกชื่อผู้โพสต์กับข้อความออกจากผลลัพธ์ AI (รูปแบบ NAME:/POST:)
 function parseGeneratedPost(raw, fallbackName) {
     const text = stripReasoning(raw);
@@ -703,7 +655,7 @@ async function generateFeedPost(opts) {
         `NAME: <ชื่อผู้โพสต์>\nPOST: <ข้อความโพสต์>`;
 
     try {
-        const raw = await tinyGenerate(quietPrompt, 400);
+        const raw = await ctx.generateQuietPrompt({ quietPrompt, responseLength: 400 });
         const { author, text } = parseGeneratedPost(raw, charName);
         if (!text) {
             toastr.warning("AI ไม่ได้ส่งข้อความโพสต์กลับมา ลองใหม่อีกครั้งนะ", "TinyFeed");
@@ -816,7 +768,7 @@ async function generateCommentReply(postId) {
     isReplying = postId;
     openPostDetail(postId);   // โชว์ "กำลังพิมพ์…"
     try {
-        const raw = await tinyGenerate(q, 150);
+        const raw = await ctx.generateQuietPrompt({ quietPrompt: q, responseLength: 150 });
         const list = parseCommentLines(raw, charName);
         if (list.length) {
             post.comments.push(list[0]);
@@ -853,7 +805,7 @@ async function generateInitialComments(post) {
         `ห้ามให้ ${post.author} คอมเมนต์โพสต์ตัวเอง ห้ามพูดแทนผู้ใช้. ` +
         `ตอบแต่ละคอมเมนต์บรรทัดละอันในรูปแบบ:\nCOMMENT: <ชื่อ> | <ข้อความ>`;
     try {
-        const raw = await tinyGenerate(q, 300);
+        const raw = await ctx.generateQuietPrompt({ quietPrompt: q, responseLength: 300 });
         const comments = parseCommentLines(raw, charName)
             .filter((c) => c.author.trim().toLowerCase() !== String(post.author).trim().toLowerCase());
         if (comments.length) {
@@ -918,7 +870,7 @@ async function generateNews(opts) {
         `SOURCE: <ชื่อสำนักข่าว>\nTITLE: <หัวข้อข่าว>\nSUMMARY: <สรุปสั้น 1-2 ประโยค>\nBODY: <เนื้อหาเต็ม หลายย่อหน้าได้>`;
 
     try {
-        const raw = await tinyGenerate(q, 500);
+        const raw = await ctx.generateQuietPrompt({ quietPrompt: q, responseLength: 500 });
         const parsed = parseGeneratedNews(raw);
         if (!parsed.title && !parsed.body) {
             if (!opts.silent) toastr.warning("AI ไม่ได้ส่งข่าวกลับมา ลองใหม่นะ", "TinyFeed");
@@ -976,7 +928,7 @@ async function aiDecidesToPost() {
             `น่าจะอยากแชร์ลงโซเชียลมีเดีย ให้ตอบว่า YES ` +
             `ถ้าตอนนี้ยังเงียบหรือไม่มีอะไรน่าโพสต์ ให้ตอบว่า NO ` +
             `ตอบเป็นคำเดียวเท่านั้น: YES หรือ NO`;
-        const res = await tinyGenerate(q, 120);
+        const res = await ctx.generateQuietPrompt({ quietPrompt: q, responseLength: 120 });
         const s = stripReasoning(res).toLowerCase();
         // เช็ค "ไม่" ก่อน (กันคำว่า no/ไม่ควร/ไม่โพสต์) แล้วค่อยเช็คฝั่งบวก
         if (/\bno\b/.test(s) || s.includes("ไม่")) return false;
@@ -1175,24 +1127,6 @@ function populateSettings() {
     $("#tinyfeed-cfg-news-interval").val(getSetting("newsAutoInterval") || 20);
     $("#tinyfeed-cfg-news-history").val(getSetting("newsHistoryCount"));
     $("#tinyfeed-cfg-notif").prop("checked", Boolean(getSetting("notificationsEnabled")));
-
-    populateApiProfiles();
-    $("#tinyfeed-cfg-api-context").val(getSetting("apiContextMessages"));
-}
-
-// เติมรายชื่อ connection profile ลง dropdown (จาก Connection Manager ของ ST)
-function populateApiProfiles() {
-    const sel = $("#tinyfeed-cfg-api-profile");
-    let profiles = [];
-    try {
-        profiles = (getContext().extensionSettings.connectionManager.profiles) || [];
-    } catch (e) { /* Connection Manager ไม่พร้อม */ }
-    let html = `<option value="">ใช้ API หลักของ SillyTavern</option>`;
-    for (const p of profiles) {
-        if (!p || !p.id) continue;
-        html += `<option value="${escapeAttr(p.id)}">${escapeText(p.name || p.id)}</option>`;
-    }
-    sel.html(html).val(getSetting("apiProfile") || "");
 }
 
 function openSettings() {
@@ -1450,15 +1384,6 @@ jQuery(async () => {
             const on = $(this).prop("checked");
             setSetting("notificationsEnabled", on);
             if (!on) clearUnread();   // ปิดแล้วเก็บจุดแดงที่ค้างด้วย
-        });
-        // Phase 2: เลือกโมเดล/API
-        $(document).on("change", "#tinyfeed-cfg-api-profile", function () {
-            setSetting("apiProfile", $(this).val());
-        });
-        $(document).on("input", "#tinyfeed-cfg-api-context", function () {
-            let v = parseInt($(this).val(), 10);
-            if (!Number.isFinite(v) || v < 0) v = 0;
-            setSetting("apiContextMessages", v);
         });
 
         // โหลดค่าที่บันทึกไว้
