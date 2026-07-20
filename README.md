@@ -123,3 +123,11 @@ tinyfeed/
 - คลาส `.tinyfeed-hidden` ใช้ `display: none !important` **โดยตั้งใจ** — เพราะ rule ที่ตั้ง `display` ทีหลังเคยชนะมันจน UI หลุดข้ามหน้า
 - เพิ่มแอปใหม่: เพิ่มไอคอนในหน้าโฮม (`.tinyfeed-app-icon[data-app]`) + view `.tinyfeed-app` + เคสใน `openApp()`
 - เพิ่มหมวดตั้งค่าใหม่: เพิ่ม `.tinyfeed-settings-group` แล้วใส่ชื่อหัวข้อลง `SETTINGS_LAYOUT` (ถ้าไม่ใส่ จะไปต่อท้ายให้อัตโนมัติ ไม่หาย)
+
+## 💌 Credits
+
+- Vibe Coding: April & Claude
+
+### 💖 Special Thanks
+
+- [Universal Extension Creator Prompt](https://discord.com/channels/1100685673633153084/1434557148641104003) by Chai/Ultraviolenc 
