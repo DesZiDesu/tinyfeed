@@ -139,6 +139,15 @@
                         <span class="tinyfeed-field-label">คำสั่งเสริมการตอบแชต (ไม่บังคับ)</span>
                         <textarea id="tinyfeed-cfg-connect-extra" rows="2" placeholder="เช่น: ตอบสั้นๆ, ใช้อิโมจิ, โทนสนิทสนม..."></textarea>
                     </label>
+                    <label class="tinyfeed-field-row">
+                        <span>ให้ตัวละครทักมาเองในแชต</span>
+                        <input id="tinyfeed-cfg-connect-auto" type="checkbox" />
+                    </label>
+                    <label class="tinyfeed-field">
+                        <span class="tinyfeed-field-label">ทักทุกๆ กี่ข้อความ</span>
+                        <input id="tinyfeed-cfg-connect-interval" type="number" min="1" />
+                    </label>
+                    <small class="tinyfeed-field-hint">เมื่อคุยในแชทหลักครบตามจำนวน ตัวละครหลักจะส่งข้อความหาคุณเองในแอปแชต พร้อมแจ้งเตือน (นับจากตอนเปิดแชท)</small>
                 </div>
 
                 <div class="tinyfeed-settings-group">

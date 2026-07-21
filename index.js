@@ -38,6 +38,9 @@ const defaultSettings = {
     // TinyConnect
     connectTokens: 200,
     connectExtraPrompt: "",
+    // ตัวละครทักมาเองในแชต เมื่อคุยในแชทหลักครบ N ข้อความ
+    connectAutoMessage: false,
+    connectAutoInterval: 8,
     // TinyStream
     streamStreamer: "char",       // "char" | "user"
     streamCommentMode: "manual",  // "manual" | "auto" | "onupdate"
@@ -1667,8 +1670,55 @@ function deleteNews(newsId) {
 }
 
 // ===== Stage 7: auto-generate เมื่อมีเหตุการณ์ในแชท =====
+// ให้ตัวละครหลักส่งข้อความหาผู้ใช้เองในแอปแชต (thread "main") โดยอ้างอิงเนื้อเรื่องล่าสุด
+async function generateAutoConnectMessage() {
+    const char = getCurrentCharacter();
+    if (!char) return;
+    const name = char.name;
+    const you = getUserName();
+    const recent = getThread("main").slice(-8)
+        .map((m) => `${m.from === "user" ? you : name}: ${htmlToPlain(m.text)}`).join("\n");
+    const extra = String(getSetting("connectExtraPrompt") || "").trim();
+    const q =
+        `[คำสั่งระบบ — ไม่ใช่ส่วนของเนื้อเรื่อง] ${name} หยิบโทรศัพท์ขึ้นมาส่งข้อความหา ${you} เองในแอปแชตส่วนตัว (คล้ายไลน์) ` +
+        `เพื่อทักหรือพูดถึงสิ่งที่เพิ่งเกิดขึ้นระหว่าง ${name} กับ ${you} ในเนื้อเรื่องตอนนี้. ` +
+        `เขียนในบทบาทของ ${name} แบบเป็นธรรมชาติ สั้นกระชับเหมือนแชตจริง (1-3 ประโยค) ` +
+        `ใช้ภาษาเดียวกับเนื้อเรื่อง ห้ามพูดหรือกระทำแทน ${you}.\n` +
+        (extra ? `คำสั่งเพิ่มเติม: ${extra}.\n` : "") +
+        crossAppContext("connect") +
+        (recent ? `บทแชตล่าสุดในแอปแชต:\n${recent}\n` : "") +
+        `ตอบเฉพาะข้อความของ ${name} เท่านั้น ไม่ต้องใส่ชื่อนำหน้า`;
+    let raw;
+    try {
+        raw = await tinyGenerate(q, Math.max(1, parseInt(getSetting("connectTokens"), 10) || 200));
+    } catch (e) {
+        console.error(`[${extensionName}] auto connect message failed:`, e);
+        return;
+    }
+    let reply = stripReasoning(raw).trim();
+    // ดึงเฉพาะเนื้อในถ้าโมเดลห่อด้วย [... Message: ข้อความ] (เหมือน generateConnectReply)
+    const wrapped = [...reply.matchAll(/\[[^\]]*?Message:\s*([^\]]+)\]/gi)];
+    if (wrapped.length) reply = wrapped.map((m) => m[1].trim()).join("\n");
+    reply = reply.replace(/^\[|\]$/g, "").trim();
+    const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    reply = reply.replace(new RegExp(`^${esc}\\s*[:：]\\s*`, "i"), "").trim();
+    if (!reply) return;   // ได้ค่าว่าง = ข้ามเงียบๆ (อัตโนมัติ ไม่รบกวนด้วย toast)
+    getThread("main").push({ from: "contact", text: escapeHtml(reply), ts: Date.now() });
+    saveFeedData();
+    // แจ้งเตือนสไตล์โทรศัพท์ → กดแล้วเปิดแชตกับตัวละคร
+    showConnectNotif(makeAvatar({ isMain: true, author: name }), name, htmlToPlain(reply), "main", name);
+    // อัปเดต UI ถ้าเปิดแอปแชตอยู่
+    if (currentApp === "connect") {
+        if (activeThread === "main") renderThread();
+        else if (!activeThread) renderConnectList();
+    }
+    updateChatInjection();
+    console.log(`[${extensionName}] auto connect message from`, name);
+}
+
 let autoMsgCount = 0;    // ตัวนับข้อความสำหรับโพสต์ (รีเซ็ตเมื่อสลับแชท)
 let autoNewsCount = 0;   // ตัวนับข้อความสำหรับข่าว
+let autoConnectCount = 0; // ตัวนับข้อความสำหรับให้ตัวละครทักมาเองในแชต
 let isAutoBusy = false;  // กันลำดับ auto ซ้อนกัน
 
 // ถาม AI แบบเงียบว่าควรมีโพสต์ใหม่ตอนนี้ไหม (โหมด ai)
@@ -1700,10 +1750,12 @@ async function onChatMessage() {
 
     const feedOn = getSetting("autoGenerate");
     const newsOn = getSetting("newsAutoGenerate");
+    const connectOn = getSetting("connectAutoMessage");
     if (feedOn) autoMsgCount++;
     if (newsOn) autoNewsCount++;
+    if (connectOn) autoConnectCount++;
 
-    // โพสต์ฟีดก่อน (ถ้าถึงรอบ) — ข่าวรอรอบถัดไป กัน generate ซ้อนในทีเดียว
+    // โพสต์ฟีดก่อน (ถ้าถึงรอบ) — ข่าว/แชตรอรอบถัดไป กัน generate ซ้อนในทีเดียว
     const feedInterval = Math.max(1, parseInt(getSetting("autoGenerateInterval"), 10) || 10);
     if (feedOn && autoMsgCount >= feedInterval) {
         autoMsgCount = 0;
@@ -1713,6 +1765,17 @@ async function onChatMessage() {
                 if (!(await aiDecidesToPost())) return;
             }
             await generateFeedPost({ notify: true, silent: true });
+        } finally { isAutoBusy = false; }
+        return;
+    }
+
+    // ตัวละครทักมาเองในแชต (ถ้าถึงรอบ)
+    const connectInterval = Math.max(1, parseInt(getSetting("connectAutoInterval"), 10) || 8);
+    if (connectOn && autoConnectCount >= connectInterval) {
+        autoConnectCount = 0;
+        isAutoBusy = true;
+        try {
+            await generateAutoConnectMessage();
         } finally { isAutoBusy = false; }
         return;
     }
@@ -1733,7 +1796,10 @@ async function onChatMessage() {
 
 // ===== แจ้งเตือนสไตล์โทรศัพท์ (push banner) =====
 let notifTimer = null;
-let notifTab = "feed";   // กดแจ้งเตือนแล้วไปแท็บไหน
+let notifTab = "feed";   // กดแจ้งเตือนแล้วไปแท็บไหน (ในแอป feed)
+let notifApp = "feed";   // กดแจ้งเตือนแล้วเปิดแอปไหน ("feed" | "connect")
+let notifThreadKey = null; // ถ้าเป็น connect เปิด thread ไหน
+let notifThreadName = "";  // ชื่อ contact ของ thread นั้น
 
 // จำนวนแจ้งเตือนที่ยังไม่ได้ดู
 let unreadCount = 0;
@@ -1757,11 +1823,10 @@ function clearUnread() {
     $("#tinyfeed-menu-badge").text("").addClass("tinyfeed-hidden");
 }
 
-// แสดงแบนเนอร์แจ้งเตือน (ใช้ได้ทั้งโพสต์และข่าว)
-function showNotif(avatarHtml, author, text, tab) {
+// แสดงแบนเนอร์แจ้งเตือน (แกนกลาง — ใช้ร่วมทุกแอป)
+function displayNotifBanner(avatarHtml, author, text) {
     if (!getSetting("notificationsEnabled")) return;   // ปิดแจ้งเตือน = ไม่ทำอะไร
     markUnread();
-    notifTab = tab || "feed";
     const notif = $("#tinyfeed-notif");
     notif.find(".tinyfeed-notif-avatar").html(avatarHtml);
     notif.find(".tinyfeed-notif-author").text(author || "");
@@ -1772,6 +1837,22 @@ function showNotif(avatarHtml, author, text, tab) {
     notifTimer = setTimeout(dismissNotif, 8000);
 }
 
+// แจ้งเตือนจากแอป Feed (โพสต์/ข่าว) — กดแล้วเปิดแอป Feed ไปที่แท็บที่เกี่ยว
+function showNotif(avatarHtml, author, text, tab) {
+    notifApp = "feed";
+    notifTab = tab || "feed";
+    notifThreadKey = null;
+    displayNotifBanner(avatarHtml, author, text);
+}
+
+// แจ้งเตือนจากแอปแชต (TinyConnect) — กดแล้วเปิดแชต thread นั้น
+function showConnectNotif(avatarHtml, author, text, threadKey, threadName) {
+    notifApp = "connect";
+    notifThreadKey = threadKey || "main";
+    notifThreadName = threadName || author || "";
+    displayNotifBanner(avatarHtml, author, text);
+}
+
 function showPushNotification(post) {
     showNotif(makeAvatar(post), post.author, htmlToPlain(post.text), "feed");
 }
@@ -1780,12 +1861,17 @@ function dismissNotif() {
     $("#tinyfeed-notif").removeClass("tinyfeed-notif-show");
 }
 
-// กดแจ้งเตือน → เปิดแอป Feed ไปที่แท็บที่เกี่ยวข้อง
+// กดแจ้งเตือน → เปิดแอปที่เกี่ยวข้อง (Feed แท็บที่ตรง หรือ TinyConnect thread ที่ตรง)
 function openFeedFromNotif() {
     dismissNotif();
     openPhone();          // เปิดเครื่อง (ไปหน้าโฮมก่อน)
-    openApp("feed");      // เข้าแอป Feed
-    switchTab(notifTab);
+    if (notifApp === "connect") {
+        openApp("connect");
+        openThread(notifThreadKey || "main", notifThreadName || "");
+    } else {
+        openApp("feed");      // เข้าแอป Feed
+        switchTab(notifTab);
+    }
 }
 
 // ขยายช่องเขียนโพสต์ (ช่องเดิมโตขึ้น + โชว์ปุ่ม)
@@ -1930,6 +2016,8 @@ function populateSettings() {
     $("#tinyfeed-cfg-stream-extra").val(getSetting("streamExtraPrompt"));
     $("#tinyfeed-cfg-connect-tokens").val(getSetting("connectTokens"));
     $("#tinyfeed-cfg-connect-extra").val(getSetting("connectExtraPrompt"));
+    $("#tinyfeed-cfg-connect-auto").prop("checked", Boolean(getSetting("connectAutoMessage")));
+    $("#tinyfeed-cfg-connect-interval").val(getSetting("connectAutoInterval") || 8);
 
     populateApiProfiles();
     $("#tinyfeed-cfg-api-context").val(getSetting("apiContextMessages"));
@@ -2033,6 +2121,7 @@ jQuery(async () => {
         context.eventSource.on(context.eventTypes.CHAT_CHANGED, () => {
             autoMsgCount = 0;   // เริ่มนับใหม่ตามแชทที่เปิด
             autoNewsCount = 0;
+            autoConnectCount = 0;
             renderFeed();
             renderNews();
             if (isSettingsOpen()) populateSettings();   // อัปเดตชื่อ/ลิงก์รูปตัวละครตามแชทใหม่
@@ -2325,6 +2414,13 @@ jQuery(async () => {
         });
         $(document).on("input", "#tinyfeed-cfg-connect-extra", function () {
             setSetting("connectExtraPrompt", $(this).val());
+        });
+        $(document).on("change", "#tinyfeed-cfg-connect-auto", function () {
+            setSetting("connectAutoMessage", $(this).prop("checked"));
+        });
+        $(document).on("input", "#tinyfeed-cfg-connect-interval", function () {
+            const n = parseInt($(this).val(), 10);
+            setSetting("connectAutoInterval", Number.isFinite(n) && n > 0 ? n : 8);
         });
 
         // Phase 2: token + คำสั่งเสริม
