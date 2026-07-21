@@ -96,12 +96,16 @@
 @media (max-width: 500px) {
     #tinyfeed-overlay {
         padding: 0;
+        height: 100vh;
+        height: 100dvh;        /* ตามความสูงจริงของ viewport (หัก toolbar ของ Safari) */
     }
     #tinyfeed-phone {
         width: 100vw;
-        height: 100vh;         /* เต็มจอด้วย viewport unit ตรงๆ */
+        height: 100vh;         /* fallback สำหรับเบราว์เซอร์เก่า */
+        height: 100dvh;        /* iOS Safari: กันตัวเครื่องยาวเลยจอจน chatbar หลุด */
         max-width: 100vw;
         max-height: 100vh;
+        max-height: 100dvh;
         margin: 0;
         border-radius: 0;
     }
@@ -1195,6 +1199,8 @@
     align-items: center;
     gap: 8px;
     padding: 10px 12px;
+    /* เผื่อ home indicator ของ iPhone ไม่ให้บังช่องพิมพ์ (env = 0 บนเครื่องที่ไม่มี) */
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
     border-top: 1px solid var(--tf-border);
     flex-shrink: 0;
 }
@@ -1380,6 +1386,8 @@
     align-items: center;
     gap: 8px;
     padding: 10px 12px;
+    /* เผื่อ home indicator ของ iPhone (env = 0 บนเครื่องที่ไม่มี) */
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
     border-top: 1px solid var(--tf-border);
     flex-shrink: 0;
 }
