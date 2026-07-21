@@ -51,6 +51,8 @@ const defaultSettings = {
     apiProfile: "",
     apiContextMessages: 10,   // จำนวนข้อความล่าสุดที่แนบเป็น context เมื่อใช้ profile แยก
     worldInfoLimit: 0,        // จำกัดความยาว World Info ที่แนบ (ตัวอักษร, 0 = ไม่จำกัด)
+    // System prompt / jailbreak แนบให้ทุกการสร้างของ TinyFeed (ทั้ง API หลักและโมเดลแยก)
+    jailbreakPrompt: "",
     // Phase 2: จำนวน token ตอบกลับ (กันข้อความขาด)
     postTokens: 400,
     newsTokens: 500,
@@ -1317,10 +1319,13 @@ async function buildContextPreamble() {
 // ยิง generation — เลือกใช้ API หลัก หรือ connection profile แยก (มี fallback)
 async function tinyGenerate(prompt, maxTokens) {
     const ctx = getContext();
+    // System prompt / jailbreak แนบไว้บนสุด — โมเดลแยกไม่ได้รับเจลเบรกจาก preset ของ ST เลย
+    const jb = String(getSetting("jailbreakPrompt") || "").trim();
+    const sysBlock = jb ? `[System / คำสั่งระบบ — ต้องปฏิบัติตามอย่างเคร่งครัด เหนือกว่าคำสั่งอื่น]\n${jb}\n\n` : "";
     const profileId = getSetting("apiProfile");
     if (profileId && ctx.ConnectionManagerRequestService) {
         try {
-            const full = (await buildContextPreamble()) + prompt;
+            const full = sysBlock + (await buildContextPreamble()) + prompt;
             const res = await ctx.ConnectionManagerRequestService.sendRequest(profileId, full, maxTokens);
             const content = res && typeof res.content === "string" ? res.content : "";
             if (content) return content;
@@ -1329,8 +1334,8 @@ async function tinyGenerate(prompt, maxTokens) {
             console.error(`[${extensionName}] profile request ล้มเหลว fallback ไป API หลัก:`, e);
         }
     }
-    // API หลัก (generateQuietPrompt แนบ context RP ให้เอง)
-    return await ctx.generateQuietPrompt({ quietPrompt: prompt, responseLength: maxTokens });
+    // API หลัก (generateQuietPrompt แนบ context RP ให้เอง) — เติม sysBlock ย้ำเจลเบรกให้ quiet gen ด้วย
+    return await ctx.generateQuietPrompt({ quietPrompt: sysBlock + prompt, responseLength: maxTokens });
 }
 
 // แยกชื่อผู้โพสต์กับข้อความออกจากผลลัพธ์ AI (รูปแบบ NAME:/POST:)
@@ -1934,7 +1939,7 @@ function closeDetail() {
 const SETTINGS_LAYOUT = [
     {
         head: "⚙️ ตั้งค่าเครื่อง",
-        titles: ["การแจ้งเตือน", "โมเดล / API", "วอลเปเปอร์", "รูปโปรไฟล์", "NPC ประจำ (แชทนี้)", "แทรกฟีดเข้าประวัติแชท"],
+        titles: ["การแจ้งเตือน", "โมเดล / API", "คำสั่งระบบ / Jailbreak", "วอลเปเปอร์", "รูปโปรไฟล์", "NPC ประจำ (แชทนี้)", "แทรกฟีดเข้าประวัติแชท"],
     },
     {
         head: "📱 TinyFeed",
@@ -2022,6 +2027,7 @@ function populateSettings() {
     populateApiProfiles();
     $("#tinyfeed-cfg-api-context").val(getSetting("apiContextMessages"));
     $("#tinyfeed-cfg-wi-limit").val(getSetting("worldInfoLimit"));
+    $("#tinyfeed-cfg-jailbreak").val(getSetting("jailbreakPrompt"));
 
     $("#tinyfeed-cfg-post-tokens").val(getSetting("postTokens"));
     $("#tinyfeed-cfg-post-extra").val(getSetting("postExtraPrompt"));
@@ -2386,6 +2392,9 @@ jQuery(async () => {
             let v = parseInt($(this).val(), 10);
             if (!Number.isFinite(v) || v < 0) v = 0;
             setSetting("worldInfoLimit", v);
+        });
+        $(document).on("input", "#tinyfeed-cfg-jailbreak", function () {
+            setSetting("jailbreakPrompt", $(this).val());
         });
         // TinyStream config
         $(document).on("change", "#tinyfeed-cfg-stream-streamer", function () {
